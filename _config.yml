@@ -58,7 +58,7 @@ plugins:
 author:
   name   : "Frederik Leed"
   avatar : "/assets/images/bio-me.jpeg"
-  bio    : "Microsoft fanboy - Do the basics! - Stuff as code! - #MustLearnKQL"
+  bio    : "Microsoft fanboy - Do the basics! - Stuff as code! - MustLearnKQL"
   links:
     - label: "Twitter"
       icon: "fab fa-fw fa-twitter-square"
