@@ -125,6 +125,8 @@ After reviewing the output, a script could be used to fix deviating objects.
 
 To set owners on existing objects, I have written this small function.
 
+{% include codeHeader.html %}
+
 ```powershell
 <#
 .SYNOPSIS
@@ -176,6 +178,8 @@ Function Set-ADObjectOwner{
 Leveraging the power of Powershell (pun intented) we can easily fix multiple objects using a relatively small effort. Here we are combining the script to detect with the function to fix.
 
 The script can be downloaded [here](https://github.com/FrederikLeed/AD/blob/main/Delegation/fix_rouge_owners.ps1)
+
+{% include codeHeader.html %}
 
 ```powershell
 <#
@@ -327,6 +331,8 @@ Scheduled scripts need to run with a set of stored credentials. To reduce risk, 
 
 Small function to use powershell to create a new gMSA
 
+{% include codeHeader.html %}
+
 ```powershell
 Function NewgMSA{
 [CmdletBinding()]
@@ -365,6 +371,8 @@ Create scheduled task using ui.
 Then, after the task has been created, make it run using the gMSA.
 
 Example:
+
+{% include codeHeader.html %}
 
 ```batch
 schtasks.exe /change /RU "DOMAIN\gMSA_OwnerRights$" /TN "\Maintenance\FixOwnerPermission" /RP
