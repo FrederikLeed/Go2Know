@@ -51,6 +51,8 @@ In Active Directory, securing some assets are of higher priority due to extended
 
 Here we have written a few lines of powershell to report on privilged AD Objects where Owner does not match "Domain Admins". There is a mention about AD tiering in the script, read about it [here](https://petri.com/use-microsofts-active-directory-tier-administrative-model/)
 
+{% include codeHeader.html %}
+
 ```powershell
 $AdminGroups = @"
 Account Operators
