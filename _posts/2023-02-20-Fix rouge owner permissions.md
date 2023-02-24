@@ -120,7 +120,7 @@ After reviewing the output, a script could be used to fix deviating objects.
 
 To set owners on existing objects, I have written this small function.
 
-```Powershell
+```powershell
 <#
 .SYNOPSIS
 Sets the owner of an Active Directory object to a specified group.
@@ -172,7 +172,7 @@ Leveraging the power of Powershell (pun intented) we can easily fix multiple obj
 
 The script can be downloaded [here](https://github.com/FrederikLeed/AD/blob/main/Delegation/fix_rouge_owners.ps1)
 
-```Powershell
+```powershell
 <#
 .SYNOPSIS
 Sets the owner of an Active Directory object to a specified group.
@@ -322,7 +322,7 @@ Scheduled scripts need to run with a set of stored credentials. To reduce risk, 
 
 Small function to use powershell to create a new gMSA
 
-```Powershell
+```powershell
 Function NewgMSA{
 [CmdletBinding()]
 param (
@@ -361,6 +361,6 @@ Then, after the task has been created, make it run using the gMSA.
 
 Example:
 
-```Batch
+```batch
 schtasks.exe /change /RU "DOMAIN\gMSA_OwnerRights$" /TN "\Maintenance\FixOwnerPermission" /RP
 ```
