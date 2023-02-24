@@ -1,10 +1,13 @@
 ---
-layout: post
 title: "Member server inventory - local groups"
-categories: Windows
+categories:
+  - Windows
 author:
  - Frederik Leed
-meta: "Microsoft"
+tags:
+  - Microsoft
+  - Security
+  - Powershell
 ---
 
 ## Why do we need to know?
@@ -19,7 +22,7 @@ Compliance: Many organizations are required to comply with regulations related t
 
 In summary, understanding the membership of local groups on servers is an important aspect of server management, security, and compliance.
 
-## The script! ![powershell](/assets/powershell.png){:width="30px"}
+## The script! ![powershell](/assets/images/powershell.png){:width="30px"}
 
 ```Powershell
 # Set the root OU for the search

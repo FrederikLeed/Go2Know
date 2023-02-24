@@ -1,13 +1,16 @@
 ---
-layout: post
 title: "Delegating permissions in Active Directory"
-categories: ActiveDirectory
+categories:
+  - Active Directory
 author:
  - Frederik Leed
-meta: "Microsoft"
+tags:
+  - Microsoft
+  - Security
+  - Powershell
 ---
 
-![Delegated administration](/assets/groups.png){:width="180px"}
+![Delegated administration](/assets/images/groups.png){:width="180px"}
 
 ## Delegated administration
 
@@ -23,9 +26,9 @@ There are several different levels of delegation in Active Directory, each with 
 
 By delegating administrative tasks in Active Directory, organizations can ensure that only the necessary personnel have access to critical functions, while reducing the risk of unauthorized access and security breaches. It can also help to streamline administrative workflows and improve overall efficiency in managing the Active Directory environment.
 
-![Company structure](/assets/AD_Company_structure.png){:width="360px"}
+![Company structure](/assets/images/AD_Company_structure.png){:width="360px"}
 
-## Report on existing delegations ![powershell](/assets/powershell.png){:width="30px"}
+## Report on existing delegations ![powershell](/assets/images/powershell.png){:width="30px"}
 
 ```Powershell
         <#
@@ -37,7 +40,7 @@ By delegating administrative tasks in Active Directory, organizations can ensure
         #>
 ```
 
-## Create new delegations ![powershell](/assets/powershell.png){:width="30px"}
+## Create new delegations ![powershell](/assets/images/powershell.png){:width="30px"}
 
 ```Powershell
         <#
