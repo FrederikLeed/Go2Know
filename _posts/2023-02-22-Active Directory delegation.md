@@ -8,6 +8,7 @@ tags:
   - Microsoft
   - Security
   - Powershell
+layout: post
 ---
 
 Least privilege wins! Delegate permission in every case, never use built-in operator groups.
@@ -32,7 +33,9 @@ By delegating administrative tasks in Active Directory, organizations can ensure
 
 ## Report on existing delegations ![powershell](/assets/images/powershell.png){:width="30px"}
 
-{% highlight powershell %}
+{% include codeHeader.html %}
+
+```powershell
         <#
             .SYNOPSIS
             
@@ -40,9 +43,11 @@ By delegating administrative tasks in Active Directory, organizations can ensure
 
             .EXAMPLE
         #>
-{% endhighlight %}
+```
 
 ## Create new delegations ![powershell](/assets/images/powershell.png){:width="30px"}
+
+{% include codeHeader.html %}
 
 ```powershell
         <#

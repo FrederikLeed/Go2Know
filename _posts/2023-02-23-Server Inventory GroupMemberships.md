@@ -8,6 +8,7 @@ tags:
   - Microsoft
   - Security
   - Powershell
+layout: post  
 ---
 
 Who has access to your servers?
@@ -25,6 +26,8 @@ Compliance: Many organizations are required to comply with regulations related t
 In summary, understanding the membership of local groups on servers is an important aspect of server management, security, and compliance.
 
 ## The script! ![powershell](/assets/images/powershell.png){:width="30px"}
+
+{% include codeHeader.html %}
 
 ```powershell
 # Set the root OU for the search
