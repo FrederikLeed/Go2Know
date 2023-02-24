@@ -30,7 +30,7 @@ By delegating administrative tasks in Active Directory, organizations can ensure
 
 ## Report on existing delegations ![powershell](/assets/images/powershell.png){:width="30px"}
 
-```Powershell
+{% highlight powershell %}
         <#
             .SYNOPSIS
             
@@ -38,7 +38,7 @@ By delegating administrative tasks in Active Directory, organizations can ensure
 
             .EXAMPLE
         #>
-```
+{% endhighlight %}
 
 ## Create new delegations ![powershell](/assets/images/powershell.png){:width="30px"}
 
