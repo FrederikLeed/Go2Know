@@ -10,7 +10,7 @@ tags:
   - Powershell
 ---
 
-![Microsoft Active Directory](/assets/Microsoft_ActiveDirectory.png){:width="360px"}
+![Microsoft Active Directory](/assets/images/Microsoft_ActiveDirectory.png){:width="360px"}
 
 <!-- TOC start -->
 - [Active Directory object ownership](#active-directory-object-ownership)
