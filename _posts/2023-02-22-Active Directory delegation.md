@@ -42,7 +42,7 @@ By delegating administrative tasks in Active Directory, organizations can ensure
 
 ## Create new delegations ![powershell](/assets/images/powershell.png){:width="30px"}
 
-```Powershell
+```powershell
         <#
             .SYNOPSIS
             Adds permission on supplied OrganizationalUnit to the supplied AD group
