@@ -33,7 +33,7 @@ In Active Directory, the object owner refers to the user or group that has owner
 
 By default, the user who creates an object in Active Directory is set as the owner of that object. However, ownership can be transferred to another user or group by changing the ownership of the object.
 
-## How can object ownership be abused? ![Hacker](/assets/hacker-icon.png){:width="50px"}
+## How can object ownership be abused? ![Hacker](/assets/images/hacker-icon.png){:width="50px"}
 
 An attack on Active Directory using owner permissions in Active Directory could involve an attacker gaining ownership of a high-privileged object, such as a domain controller, by compromising the account of the current owner.
 
@@ -355,7 +355,7 @@ Create scheduled task using ui.
 - Argument: -file "FixRougeOwners.ps1"
 - Start in: c:\scripts
 
-![Task settings](/assets/schtask_ownerrights.png)
+![Task settings](/assets/images/schtask_ownerrights.png)
 
 Then, after the task has been created, make it run using the gMSA.
 
