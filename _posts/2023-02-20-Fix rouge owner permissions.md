@@ -1,10 +1,13 @@
 ---
-layout: post
 title: "About owner rights in Active Directory"
-categories: ActiveDirectory
+categories:
+  - Active Directory
 author:
  - Frederik Leed
-meta: "Microsoft"
+tags:
+  - Microsoft
+  - Security
+  - Powershell
 ---
 
 ![Microsoft Active Directory](/assets/Microsoft_ActiveDirectory.png){:width="360px"}
