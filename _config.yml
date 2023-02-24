@@ -57,7 +57,7 @@ plugins:
 
 author:
   name   : "Frederik Leed"
-  avatar : "/assets/images/bio-me.jpg"
+  avatar : "/assets/images/bio-me.jpeg"
   bio    : "Microsoft fanboy - Do the basics beleiver - Stuff as code!"
   links:
     - label: "Twitter"
@@ -66,6 +66,9 @@ author:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
       url: "https://github.com/frederikleed"
+    - label: "LinkedIn"
+      icon: "fab fa-fw fa-linkedin"
+      url: "https://www.linkedin.com/in/frederikleed"      
 
 footer:
   links:
@@ -75,7 +78,9 @@ footer:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
       url: "https://github.com/frederikleed"
-
+    - label: "LinkedIn"
+      icon: "fab fa-fw fa-linkedin"
+      url: "https://www.linkedin.com/in/frederikleed"
 
 defaults:
   # _posts
