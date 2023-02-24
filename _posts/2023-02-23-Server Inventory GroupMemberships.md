@@ -26,7 +26,7 @@ In summary, understanding the membership of local groups on servers is an import
 
 ## The script! ![powershell](/assets/images/powershell.png){:width="30px"}
 
-```Powershell
+```powershell
 # Set the root OU for the search
 $root = "OU=Servers,OU=Tier0,OU=adm,DC=domain,DC=com"
 
