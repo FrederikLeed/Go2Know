@@ -10,6 +10,8 @@ tags:
   - Powershell
 ---
 
+In Active Directory, the object owner refers to the user or group that has ownership of an object. This permission can be abused!
+
 ![Microsoft Active Directory](/assets/images/Microsoft_ActiveDirectory.png){:width="360px"}
 
 <!-- TOC start -->

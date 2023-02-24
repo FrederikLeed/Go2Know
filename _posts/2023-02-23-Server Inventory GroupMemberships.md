@@ -10,6 +10,8 @@ tags:
   - Powershell
 ---
 
+Who has access to your servers?
+
 ## Why do we need to know?
 
 Knowing the members of local groups on servers is important for several reasons, including:

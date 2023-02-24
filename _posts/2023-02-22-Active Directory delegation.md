@@ -10,6 +10,8 @@ tags:
   - Powershell
 ---
 
+Least privilege wins! Delegate permission in every case, never use built-in operator groups.
+
 ![Delegated administration](/assets/images/groups.png){:width="180px"}
 
 ## Delegated administration
