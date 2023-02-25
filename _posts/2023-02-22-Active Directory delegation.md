@@ -68,7 +68,7 @@ Get-PscActiveDirectoryACL -ScanDNName "OU=Company,DC=Domain,DC=com" `
 Where-Object {
     $_.'Assigned To' -notmatch "s-1-5-32-548|s-1-5-32-554|Domain Admins|exchange|organization"
     # Uncomment the following line to include only a specific group or account
-    # $_.'Assigned To' -match "sec-ad-nr"
+    # $_.'Assigned To' -match "sec-ad-department"
 } |
 
 # Display the results in a grid view
