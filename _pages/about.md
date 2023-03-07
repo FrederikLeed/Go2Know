@@ -1,3 +1,15 @@
+<!-- TOC start -->
+- [Why blog?](#why-blog)
+- [About me](#about-me)
+  * [The career](#the-career)
+  * [Personal interests](#personal-interests)
+    + [Football (the one where you use your feet)](#football-the-one-where-you-use-your-feet)
+    + [Mountainbiking](#mountainbiking)
+    + [DIY](#diy)
+    + [The dog](#the-dog)
+- [The end](#the-end)
+- [Certification stuff](#certification-stuff)
+<!-- TOC end -->
 ---
 permalink: /about/
 title: "About me"
