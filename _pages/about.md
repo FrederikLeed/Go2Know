@@ -1,27 +1,35 @@
 ---
 permalink: /about/
-title: "About"
+title: "About me"
 ---
 
-### The simple life
+## Why blog?
+
+The primary purpose of my blog is to serve as a repository for various guides and scripts that I have compiled over time. It is a virtual space where I can easily access my own solutions and also share the solutions I have developed either independently or in conjunction with other like-minded individuals.
+
+Writing blog posts about solutions has a positive impact on the quality of my work, as well as on the reusability of my code.
+
+### I like the simple life
 
 >"I am in fact a Hobbit in all but size. I like gardens, trees, and unmechanized farmlands; I smoke a pipe, and like good plain food...and I believe that  legends and myths are largely made of 'truth', and indeed present aspects of it that can only be received in this mode; and long ago certain truths and modes of this kind were discovered and must always reappear."  --J.R.R. Tolkien
 
 A great quote from Tolkien about the Hobbits simple life. This goes for me as well. (allthough I do not smoke pipe, I do like the concept of it. Something peacefull)
 
-# All about me
-
-Frederik Leed
+![Hobbiton](/assets/images/hobbit.jpg){:width="400px"}
 
 ## The career
 
 AI generated from resume:
 
-Frederik Norman Leed is an experienced Senior Technical Architect who has worked for various companies in Denmark. He has a background in IT consulting, system administration, and infrastructure architecture, with a focus on Microsoft technologies. Frederik possesses a diverse range of skills, including expertise in Azure Active Directory, Active Directory, and M365 Security. He is also proficient in using Microsoft Identity Manager and PowerShell, and has a strong understanding of cyber security and credential theft mitigation. Additionally, Frederik has experience with implementing single sign-on solutions and performing OS deployments. With such a broad skill set, he is well-equipped to handle a variety of tasks and projects within the realm of information technology.
+Frederik Norman Leed is an experienced Senior Technical Architect who has worked for various companies in Denmark. He has a background in IT consulting, system administration, and infrastructure architecture, with a focus on Microsoft technologies. 
+
+Frederik possesses a diverse range of skills, including expertise in Azure Active Directory, Active Directory, and M365 Security. He is also proficient in using Microsoft Identity Manager and PowerShell, and has a strong understanding of cyber security and credential theft mitigation.
+
+Additionally, Frederik has experience with implementing single sign-on solutions and performing OS deployments. With such a broad skill set, he is well-equipped to handle a variety of tasks and projects within the realm of information technology.
 
 ## Personal interests
 
-Wife and kids, family first. Always!
+The lovely Wife, the wonderfull kids, the dog. Family first. Always!
 
 ### Football (the one where you use your feet)
 
@@ -45,13 +53,14 @@ Despite these passions, I still make time to appreciate the simple pleasures of 
 ![DIY](/assets/images/diy.jpg){:width="400px"}
 ### The dog
 
-The dog
-![TheDog](/assets/images/vega.jpeg){:width="400px"} ![DogMe](/assets/images/meanddog.jpg){:width="400px"}
+|![TheDog](/assets/images/vega.jpeg){:width="200px"} | ![DogMe](/assets/images/meanddog.jpg){:width="200px"}|
 
 ### The end
 
-Thank you for taking the time to read about me.
+Thank you for taking the time to read about me. Feel free to connect on SoMe links below.
 
+
+## Certification stuff
 | Microsoft certifications |
 |![AZ-900](/assets/images/microsoft-certified-fundamentals-badge.svg){:width="200px"}|![MCP](/assets/images/microsoft-certified-general-badge.svg){:width="200px"}|
 | Other |
