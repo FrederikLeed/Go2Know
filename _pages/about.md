@@ -2,7 +2,7 @@
 permalink: /about/
 title: "About me"
 ---
-
+![Me](/assets/images/me.jfif){:width="400px"}
 ## Why blog?
 
 The primary purpose of my blog is to serve as a repository for various guides and scripts that I have compiled over time. It is a virtual space where I can easily access my own solutions and also share the solutions I have developed either independently or in conjunction with other like-minded individuals.
