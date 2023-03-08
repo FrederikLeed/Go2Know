@@ -27,9 +27,9 @@ Overall, having a clear understanding of who is responsible for managing group m
 
 ## How do we get to know?
 
-*Remember, when a user is put in to a group or removed from a group, it is not an attribute on the users that is being changed, but the "member" attribute on a group.
+Remember, when a user is put in to a group or removed from a group, it is not an attribute on the user that is being changed, but the "member" attribute on a group.
 
-First, we need make sure the we have the corrosponding auditlogs settings. [Audit Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
+First, we need make sure the we have the corresponding auditlogs settings. [Audit Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
 
 >![Audit_GPO](/assets/images/Audit_security_group_mgmt.png){:width="300px"}
 
