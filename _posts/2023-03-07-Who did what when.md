@@ -35,7 +35,7 @@ First, we need make sure the we have the corrosponding auditlogs settings. [Audi
 
 I would definately reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines), in this case, specifically at the Domain Controller baseline. A friend of mine created this script to easily import various securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
 
-## Then we need to find the data ![powershell](/assets/images/powershell.png){:width="30px"}
+## Then we need to find the data
 
 Now this is not a post about how to ship security logs to your log-store. You can use [this](https://pixelrobots.co.uk/2019/07/query-active-directory-security-events-using-azure-log-analytics-on-the-cheap/) as a guide to quickly get security logs from domain controllers into a LogAnalytics workspace.
 
