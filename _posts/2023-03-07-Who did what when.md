@@ -29,11 +29,11 @@ Overall, having a clear understanding of who is responsible for managing group m
 
 Remember, when a user is put in to a group or removed from a group, it is not an attribute on the user that is being changed, but the "member" attribute on a group.
 
-First, we need make sure the we have the corresponding auditlogs settings. [Audit Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
+First, we need make sure we have the corresponding auditlogs settings. [Audit Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
 
 >![Audit_GPO](/assets/images/Audit_security_group_mgmt.png){:width="300px"}
 
-I would definately reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines), in this case, specifically at the Domain Controller baseline. A friend of mine created this script to easily import various securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
+I would definitely reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines) for auditing settings, in this case, specifically at the Domain Controller baseline. A friend of mine created this script to easily import various securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
 
 ## Then we need to find the data
 
