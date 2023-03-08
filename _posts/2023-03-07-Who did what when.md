@@ -15,6 +15,8 @@ Who added that user to that group? When? A post about Active Directory security 
 
 This is a simple post, go [here](https://github.com/rod-trent/MustLearnKQL)  to learn more about KQL. Also, follow [Matt Zorich](https://twitter.com/reprise_99?s=20) on twitter for even more awesome security related kql content.
 
+Check out this [intro to Kusto Query Language](https://www.youtube.com/watch?v=Pl8n6GaWEo0)  video from [John Savill](https://twitter.com/NTFAQGuy?s=20) out.
+
 ## Why do we need to know?
 
 Knowing who changes group membership is important for several reasons. Firstly, it helps maintain accountability and responsibility within a group or organization. By keeping track of who adds or removes members from a group, it is easier to identify and address any issues that may arise due to unauthorized or inappropriate changes.
