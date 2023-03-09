@@ -21,6 +21,7 @@ twitter_username: frederikleed
 github_username: frederikleed
 minimal_mistakes_skin: dark
 search: true
+breadcrumbs: true  # disabled by default
 
 # Build settings
 markdown: kramdown
