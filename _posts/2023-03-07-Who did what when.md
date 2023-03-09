@@ -31,7 +31,7 @@ Remember, when a user is put in to a group or removed from a group, it is not an
 
 First, we need make sure we have the corresponding auditlogs settings. [Audit Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
 
->![Audit_GPO](/assets/images/Audit_security_group_mgmt.png){:width="300px"}
+>![Audit_GPO](/assets/images/Audit_security_group_mgmt.png){:width="500px"}
 
 I would definitely reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines) for auditing settings, in this case, specifically at the Domain Controller baseline. A friend of mine created this script to easily import various securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
 
@@ -41,7 +41,7 @@ Now this is not a post about how to ship security logs to your log-store. You ca
 
 -Other logs stores are fine, events are the same, query language will differ.
 
-Here is a quick KQL query with a some filtering examples. 
+Here is a quick KQL query with a some filtering examples.
 
 1. TimeGenerated will specify timeframe
 2. EventID includes member added EventID 4732 and member removed EventID 4733
@@ -52,7 +52,7 @@ If you do not edit the query, it will return every group having membership chang
 
 {% include codeHeader.html %}
 
-```kusto
+```powershell
 SecurityEvent
 | where TimeGenerated > ago(1d) // timeframe
 | where EventID in (4732,4733) //4732 member added, 4733 member removed
