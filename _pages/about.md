@@ -3,6 +3,7 @@ permalink: /about/
 title: "About me"
 ---
 ![Me](/assets/images/me.jfif){:width="400px"}
+
 ## Why blog?
 
 The primary purpose of my blog is to serve as a repository for various guides and scripts that I have compiled over time. It is a virtual space where I can easily access my own solutions and also share the solutions I have developed either independently or in conjunction with other like-minded individuals.
@@ -51,6 +52,7 @@ I really enjoy mountain biking with my eldest son as it provides us with an oppo
 Despite these passions, I still make time to appreciate the simple pleasures of home life. As a homeowner, I enjoy taking on various DIY projects around the house, which not only helps me to relax and unwind, but also allows me to see the tangible results of my hard work. There's nothing quite like the sense of satisfaction that comes from completing a challenging task with my own two hands.
 
 ![DIY](/assets/images/diy.jpg){:width="400px"}
+
 #### The dog
 
 |![TheDog](/assets/images/vega.jpeg){:width="200px"} | ![DogMe](/assets/images/meanddog.jpg){:width="200px"}|
@@ -58,10 +60,3 @@ Despite these passions, I still make time to appreciate the simple pleasures of 
 ## The end
 
 Thank you for taking the time to read about me. Feel free to connect on SoMe links below.
-
-
-## Certification stuff
-| Microsoft certifications |
-|![AZ-900](/assets/images/microsoft-certified-fundamentals-badge.svg){:width="200px"}|![MCP](/assets/images/microsoft-certified-general-badge.svg){:width="200px"}|
-| Other |
-|![kql](/assets/images/cert_kql.png){:width="200px"}
