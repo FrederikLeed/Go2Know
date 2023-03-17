@@ -22,9 +22,9 @@ Make sure to check out this [intro to Kusto Query Language](https://www.youtube.
 <!-- TOC start -->
 - [Why do we need to know?](#why-do-we-need-to-know)
 - [Common Changes in Active Directory](#common-changes-in-active-directory)
-- [How do we get to know?](#how-do-we-get-to-know)
+- [Enable audit logging](#enable-audit-logging)
 - [Summary](#summary)
-- [Then how do we find the data we need?](#then-how-do-we-find-the-data-we-need)
+- [Example queries](#example-queries)
   - [User Account Creation and Deletion](#user-account-creation-and-deletion)
   - [Group Membership Modification (Addition/Removal)](#group-membership-modification-additionremoval)
   - [User Account Disable/Enable](#user-account-disableenable)
@@ -45,15 +45,15 @@ In summary, having a clear understanding of who is responsible for managing Acti
 
 In this section, we'll cover some of the most common changes that administrators make in Active Directory. These include:
 
-1. User Account Creation: When a new employee joins the organization, administrators create a user account for them.
-2. User Account Deletion: When an employee leaves the organization or their account is no longer needed, administrators delete the user account.
-3. Group Membership Modification: Administrators may add or remove users from security or distribution groups based on changing access requirements or organizational structure.
-4. User Account Disable/Enable: Administrators might need to disable user accounts temporarily, for instance, during an investigation or when an employee is on extended leave. Later, they might need to re-enable the account.
-5. Password Resets: Administrators may need to reset user passwords for various reasons, such as when users forget their passwords or when a security incident requires a mass password reset.
-6. Organizational Unit (OU) Changes: Administrators may create, modify, or delete OUs to reflect changes in the organizational structure or to manage permissions and Group Policy settings more effectively.
-7. Group Policy Changes: Administrators often modify Group Policy Objects (GPOs) to enforce or update security settings, software installations, and other configurations.
+1. **User Account Creation**: When a new employee joins the organization, administrators create a user account for them.
+2. **User Account Deletion**: When an employee leaves the organization or their account is no longer needed, administrators delete the user account.
+3. **Group Membership Modification**: Administrators may add or remove users from security or distribution groups based on changing access requirements or organizational structure.
+4. **User Account Disable/Enable**: Administrators might need to disable user accounts temporarily, for instance, during an investigation or when an employee is on extended leave. Later, they might need to re-enable the account.
+5. **Password Resets**: Administrators may need to reset user passwords for various reasons, such as when users forget their passwords or when a security incident requires a mass password reset.
+6. **Organizational Unit (OU) Changes**: Administrators may create, modify, or delete OUs to reflect changes in the organizational structure or to manage permissions and Group Policy settings more effectively.
+7. **Group Policy Changes**: Administrators often modify Group Policy Objects (GPOs) to enforce or update security settings, software installations, and other configurations.
 
-## How do we get to know?
+## Enable audit logging
 
 To track the changes mentioned previous section, you'll need to enable the following audit categories on your domain controllers. These categories are configured through Group Policy Management:
 
@@ -63,30 +63,35 @@ Directory Service Changes: This category includes events related to the creation
 
 To enable these audit categories, follow these steps:
 
-1. Open the Group Policy Management Console on a domain controller or a computer with the Remote Server Administration Tools (RSAT) installed.
-2. Expand the Forest > Domains > YourDomain nodes in the left pane.
-3. Right-click on the Default Domain Controllers Policy and select Edit. This will open the Group Policy Management Editor.
-4. Navigate to Computer Configuration > Policies > Windows Settings > Security Settings > Advanced Audit Policy Configuration > Audit Policies.
-5. Locate and configure the following audit policies:
+- Open the Group Policy Management Console on a domain controller or a computer with the Remote Server Administration Tools (RSAT) installed.
+- Expand the Forest > Domains > YourDomain nodes in the left pane.
+- Right-click on the Default Domain Controllers Policy and select Edit. This will open the Group Policy Management Editor.
+- Navigate to Computer Configuration > Policies > Windows Settings > Security Settings > Advanced Audit Policy Configuration > Audit Policies.
+- Locate and configure the following audit policies:
   - Account Management:
     - Audit User Account Management: Set to Success
     - Audit Security Group Management: Set to Success
   - Directory Service Changes:
     - Audit Directory Service Changes: Set to Success
 
->Audit Directory Service Changes determines whether the operating system generates audit events when changes are made to objects in Active Directory Domain Services (AD DS). [Directory Service Changes](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-directory-service-changes)
->Audit User Account Management determines whether the operating system generates audit events when specific user account management tasks are performed.[User Account Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-user-account-management)
->Audit Security Group Management determines whether the operating system generates audit events when specific security group management tasks are performed.[Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
+Audit Directory Service Changes determines whether the operating system generates audit events when changes are made to objects in Active Directory Domain Services (AD DS).
+[Directory Service Changes](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-directory-service-changes)
+
+Audit User Account Management determines whether the operating system generates audit events when specific user account management tasks are performed.
+[User Account Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-user-account-management)
+
+Audit Security Group Management determines whether the operating system generates audit events when specific security group management tasks are performed.
+[Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
 
 These are just some of the available audit policies. To create a more comprehensive solution I would definitely reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines) for auditing settings, in this case, specifically at the Domain Controller baseline.
 
-A friend of mine created this script to easily import various Microsoft securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
+Check out this script to easily import various Microsoft securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
 
 ## Summary
 
 Tracking changes in Active Directory is essential for maintaining a secure and well-managed IT environment. By monitoring events such as user account creation/deletion, group membership modifications, user account disable/enable, password resets, OU changes, and Group Policy changes, administrators can stay informed about the state of their AD environment, identify potential security threats, and meet compliance requirements.
 
-## Then how do we find the data we need?
+## Example queries
 
 Now this is not a post about how to ship security logs to your log store. To get started Log Analytics as log store, you can use [this](https://pixelrobots.co.uk/2019/07/query-active-directory-security-events-using-azure-log-analytics-on-the-cheap/) as a guide to quickly get security logs from domain controllers into a LogAnalytics workspace.
 
