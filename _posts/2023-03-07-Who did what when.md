@@ -74,9 +74,9 @@ To enable these audit categories, follow these steps:
   - Directory Service Changes:
     - Audit Directory Service Changes: Set to Success
 
-- Audit Directory Service Changes determines whether the operating system generates audit events when changes are made to objects in Active Directory Domain Services (AD DS). [Directory Service Changes](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-directory-service-changes)
-- Audit User Account Management determines whether the operating system generates audit events when specific user account management tasks are performed.[User Account Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-user-account-management)
-- Audit Security Group Management determines whether the operating system generates audit events when specific security group management tasks are performed.[Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
+>Audit Directory Service Changes determines whether the operating system generates audit events when changes are made to objects in Active Directory Domain Services (AD DS). [Directory Service Changes](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-directory-service-changes)
+>Audit User Account Management determines whether the operating system generates audit events when specific user account management tasks are performed.[User Account Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-user-account-management)
+>Audit Security Group Management determines whether the operating system generates audit events when specific security group management tasks are performed.[Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
 
 These are just some of the available audit policies. To create a more comprehensive solution I would definitely reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines) for auditing settings, in this case, specifically at the Domain Controller baseline.
 
@@ -88,11 +88,11 @@ Tracking changes in Active Directory is essential for maintaining a secure and w
 
 ## Then how do we find the data we need?
 
-Now this is not a post about how to ship security logs to your log-store. To get started, you can use [this](https://pixelrobots.co.uk/2019/07/query-active-directory-security-events-using-azure-log-analytics-on-the-cheap/) as a guide to quickly get security logs from domain controllers into a LogAnalytics workspace.
+Now this is not a post about how to ship security logs to your log store. To get started Log Analytics as log store, you can use [this](https://pixelrobots.co.uk/2019/07/query-active-directory-security-events-using-azure-log-analytics-on-the-cheap/) as a guide to quickly get security logs from domain controllers into a LogAnalytics workspace.
 
-> Other logs stores are fine, events are the same, query language will differ.
+> Other logs stores are fine, events are the same, but query language will differ.
 
-Here are some KQL hunting queries for the examples mentioned in commonchanges section. These queries are designed to work with Azure Sentinel, but you can adapt them to other platforms that support KQL. You can use these queries to hunt for specific events in your logs and investigate potential security incidents.
+Here are some KQL hunting queries for the examples mentioned in common changes section. These queries are designed to work with Azure Log Analytics, but you can adapt them to other platforms that support KQL. You can use these queries to hunt for specific events in your logs and investigate potential security incidents.
 
 ### User Account Creation and Deletion
 
