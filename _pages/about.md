@@ -55,7 +55,7 @@ Despite these passions, I still make time to appreciate the simple pleasures of 
 
 #### The dog
 
-|![TheDog](/assets/images/vega.jpeg){:width="200px"} | ![DogMe](/assets/images/meanddog.jpg){:width="200px"}|
+|![TheDog](/assets/images/vega.jpeg){:width="300px"} | ![DogMe](/assets/images/meanddog.jpg){:width="300px"}|
 
 ## The end
 
