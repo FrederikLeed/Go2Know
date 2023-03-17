@@ -161,6 +161,7 @@ SecurityEvent
 | extend ObjectClass = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[10].["#text"]
 | extend OUDN = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"]
 | extend OUDomain = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[6].["#text"]
+| extend SubjectUserName = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[3].["#text"]
 | extend Editor = SubjectUserName, EditorDomain = SubjectDomainName
 | where ObjectClass == "organizationalUnit"
 | project TimeGenerated, Activity, tostring(OUDN), Editor
@@ -178,6 +179,8 @@ SecurityEvent
 | extend ObjectClass = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[10].["#text"]
 | extend ObjectDN = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"]
 | extend DSName = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[6].["#text"]
+| extend SubjectUserName = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[3].["#text"]
+| extend Editor = SubjectUserName, EditorDomain = SubjectDomainName
 | where ObjectClass == "groupPolicyContainer"
-| project TimeGenerated, EventID, tostring(GPODN = ObjectDN), tostring(GPDomain = DSName), Editor = SubjectUserName, EditorDomain = SubjectDomainName
+| project TimeGenerated, EventID, tostring(GPODN = ObjectDN), tostring(GPDomain = DSName), Editor
 ```
