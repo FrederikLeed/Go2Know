@@ -159,11 +159,11 @@ SecurityEvent
 | where EventID in (5136, 5137, 5141)
 | extend pEventData = parse_xml(EventData)
 | extend ObjectClass = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[10].["#text"]
-| extend GPODN = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"]
-| extend GPDomain = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[6].["#text"]
+| extend OUDN = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"]
+| extend OUDomain = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[6].["#text"]
 | extend Editor = SubjectUserName, EditorDomain = SubjectDomainName
 | where ObjectClass == "organizationalUnit"
-| project TimeGenerated, Activity, tostring(GPODN), Editor
+| project TimeGenerated, Activity, tostring(OUDN), Editor
 ```
 
 ### Group Policy Changes
