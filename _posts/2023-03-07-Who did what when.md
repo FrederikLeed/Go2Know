@@ -93,7 +93,7 @@ Tracking changes in Active Directory is essential for maintaining a secure and w
 
 ## Example queries
 
-Now this is not a post about how to ship security logs to your log store. To get started Log Analytics as log store, you can use [this](https://pixelrobots.co.uk/2019/07/query-active-directory-security-events-using-azure-log-analytics-on-the-cheap/) as a guide to quickly get security logs from domain controllers into a LogAnalytics workspace.
+Now this is not a post about how to ship security logs to your log store,  but to get started with Log Analytics as log store, you can use [this](https://pixelrobots.co.uk/2019/07/query-active-directory-security-events-using-azure-log-analytics-on-the-cheap/) as a guide to quickly get security logs from domain controllers into a LogAnalytics workspace.
 
 > Other logs stores are fine, events are the same, but query language will differ.
 
