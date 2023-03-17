@@ -16,12 +16,12 @@ layout: post
 - [How do we get to know?](#how-do-we-get-to-know)
 - [Summary](#summary)
 - [Then how do we find the data we need?](#then-how-do-we-find-the-data-we-need)
-  * [User Account Creation and Deletion:](#user-account-creation-and-deletion)
-  * [Group Membership Modification (Addition/Removal):](#group-membership-modification-additionremoval)
-  * [User Account Disable/Enable:](#user-account-disableenable)
-  * [Password Resets and Password Changes:](#password-resets-and-password-changes)
-  * [Organizational Unit (OU) Changes:](#organizational-unit-ou-changes)
-  * [Group Policy Changes:](#group-policy-changes)
+  - [User Account Creation and Deletion:](#user-account-creation-and-deletion)
+  - [Group Membership Modification (Addition/Removal):](#group-membership-modification-additionremoval)
+  - [User Account Disable/Enable:](#user-account-disableenable)
+  - [Password Resets and Password Changes:](#password-resets-and-password-changes)
+  - [Organizational Unit (OU) Changes:](#organizational-unit-ou-changes)
+  - [Group Policy Changes:](#group-policy-changes)
 <!-- TOC end -->
 
 In this blog post, we'll discuss how to track changes in Active Directory (AD) with multiple examples. This information can be crucial for identifying security incidents, troubleshooting issues, and meeting compliance requirements.
