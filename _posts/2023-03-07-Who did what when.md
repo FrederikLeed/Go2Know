@@ -10,19 +10,6 @@ tags:
   - KQL
 layout: post  
 ---
-<!-- TOC start -->
-- [Why do we need to know?](#why-do-we-need-to-know)
-- [Common Changes in Active Directory](#common-changes-in-active-directory)
-- [How do we get to know?](#how-do-we-get-to-know)
-- [Summary](#summary)
-- [Then how do we find the data we need?](#then-how-do-we-find-the-data-we-need)
-  - [User Account Creation and Deletion:](#user-account-creation-and-deletion)
-  - [Group Membership Modification (Addition/Removal):](#group-membership-modification-additionremoval)
-  - [User Account Disable/Enable:](#user-account-disableenable)
-  - [Password Resets and Password Changes:](#password-resets-and-password-changes)
-  - [Organizational Unit (OU) Changes:](#organizational-unit-ou-changes)
-  - [Group Policy Changes:](#group-policy-changes)
-<!-- TOC end -->
 
 In this blog post, we'll discuss how to track changes in Active Directory (AD) with multiple examples. This information can be crucial for identifying security incidents, troubleshooting issues, and meeting compliance requirements.
 
@@ -31,6 +18,20 @@ A post about Active Directory security events and finding the information using 
 This is a simple post, go [here](https://github.com/rod-trent/MustLearnKQL)  to learn more about KQL. Also, follow [Matt Zorich](https://twitter.com/reprise_99?s=20) on twitter for even more awesome security related KQL content.
 
 Make sure to check out this [intro to Kusto Query Language](https://www.youtube.com/watch?v=Pl8n6GaWEo0)  video from [John Savill](https://twitter.com/NTFAQGuy?s=20) out.
+
+<!-- TOC start -->
+- [Why do we need to know?](#why-do-we-need-to-know)
+- [Common Changes in Active Directory](#common-changes-in-active-directory)
+- [How do we get to know?](#how-do-we-get-to-know)
+- [Summary](#summary)
+- [Then how do we find the data we need?](#then-how-do-we-find-the-data-we-need)
+  - [User Account Creation and Deletion](#user-account-creation-and-deletion)
+  - [Group Membership Modification (Addition/Removal)](#group-membership-modification-additionremoval)
+  - [User Account Disable/Enable](#user-account-disableenable)
+  - [Password Resets and Password Changes](#password-resets-and-password-changes)
+  - [Organizational Unit (OU) Changes](#organizational-unit-ou-changes)
+  - [Group Policy Changes](#group-policy-changes)
+<!-- TOC end -->
 
 ## Why do we need to know?
 
@@ -67,21 +68,22 @@ To enable these audit categories, follow these steps:
 3. Right-click on the Default Domain Controllers Policy and select Edit. This will open the Group Policy Management Editor.
 4. Navigate to Computer Configuration > Policies > Windows Settings > Security Settings > Advanced Audit Policy Configuration > Audit Policies.
 5. Locate and configure the following audit policies:
-  -Account Management:
-    -Audit User Account Management: Set to Success
-    -Audit Security Group Management: Set to Success
-  -Directory Service Changes:
-    -Audit Directory Service Changes: Set to Success
+  - Account Management:
+    - Audit User Account Management: Set to Success
+    - Audit Security Group Management: Set to Success
+  - Directory Service Changes:
+    - Audit Directory Service Changes: Set to Success
 
--Audit Directory Service Changes determines whether the operating system generates audit events when changes are made to objects in Active Directory Domain Services (AD DS). [Directory Service Changes](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-directory-service-changes)
--Audit User Account Management determines whether the operating system generates audit events when specific user account management tasks are performed.[User Account Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-user-account-management)
-*Audit Security Group Management determines whether the operating system generates audit events when specific security group management tasks are performed.[Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
+- Audit Directory Service Changes determines whether the operating system generates audit events when changes are made to objects in Active Directory Domain Services (AD DS). [Directory Service Changes](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-directory-service-changes)
+- Audit User Account Management determines whether the operating system generates audit events when specific user account management tasks are performed.[User Account Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-user-account-management)
+- Audit Security Group Management determines whether the operating system generates audit events when specific security group management tasks are performed.[Security Group Management](https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/audit-security-group-management)
 
 These are just some of the available audit policies. To create a more comprehensive solution I would definitely reccomend looking at the [Microsoft Security baselines](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-security-configuration-framework/windows-security-baselines) for auditing settings, in this case, specifically at the Domain Controller baseline.
 
 A friend of mine created this script to easily import various Microsoft securitybaselines in your AD environment. [Import-MSFT-Baselines](https://github.com/SysAdminDk/Powershell-Scripts/blob/main/Active%20Directory/Import-MSFT-Baselines.ps1)
 
 ## Summary
+
 Tracking changes in Active Directory is essential for maintaining a secure and well-managed IT environment. By monitoring events such as user account creation/deletion, group membership modifications, user account disable/enable, password resets, OU changes, and Group Policy changes, administrators can stay informed about the state of their AD environment, identify potential security threats, and meet compliance requirements.
 
 ## Then how do we find the data we need?
@@ -92,7 +94,7 @@ Now this is not a post about how to ship security logs to your log-store. To get
 
 Here are some KQL hunting queries for the examples mentioned in commonchanges section. These queries are designed to work with Azure Sentinel, but you can adapt them to other platforms that support KQL. You can use these queries to hunt for specific events in your logs and investigate potential security incidents.
 
-### User Account Creation and Deletion:
+### User Account Creation and Deletion
 
 {% include codeHeader.html %}
 
@@ -104,7 +106,7 @@ SecurityEvent
 | project TimeGenerated, Activity, AccountName , Editor
 ```
 
-### Group Membership Modification (Addition/Removal):
+### Group Membership Modification (Addition/Removal)
 
 {% include codeHeader.html %}
 
@@ -118,7 +120,7 @@ SecurityEvent
 | project TimeGenerated, Editor, GroupName , MemberName, Activity, EventID
 ```
 
-### User Account Disable/Enable:
+### User Account Disable/Enable
 
 {% include codeHeader.html %}
 
@@ -130,7 +132,7 @@ SecurityEvent
 | project TimeGenerated, Activity, AccountName, Editor
 ```
 
-### Password Resets and Password Changes:
+### Password Resets and Password Changes
 
 {% include codeHeader.html %}
 
@@ -142,7 +144,7 @@ SecurityEvent
 | project TimeGenerated, Activity, AccountName, Editor
 ```
 
-### Organizational Unit (OU) Changes:
+### Organizational Unit (OU) Changes
 
 {% include codeHeader.html %}
 
@@ -159,7 +161,7 @@ SecurityEvent
 | project TimeGenerated, Activity, tostring(GPODN), Editor
 ```
 
-### Group Policy Changes:
+### Group Policy Changes
 
 {% include codeHeader.html %}
 
