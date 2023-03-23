@@ -172,7 +172,7 @@ SecurityEvent
 {% include codeHeader.html %}
 
 ```powershell
-let substring = @'CN={|}';
+let pattern = @'\{([^}]*)\}';
 SecurityEvent
 | where TimeGenerated > ago(1d)
 | where EventID in (5136, 5137, 5141)
@@ -183,6 +183,6 @@ SecurityEvent
 | extend DSName = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[6].["#text"]
 | extend SubjectUserName = tostring(parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[3].["#text"])
 | extend CN =  toupper(parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"])
-| extend GPOID = tostring(parse_json(trim(substring,tostring(split(CN,",",0))))[0])
+| extend GPOID = extract("\\{([^}]*)\\}", 1, CN)
 | project TimeGenerated, EventID, GPOID, tostring(GPDomain = DSName), Editor = SubjectUserName
 ```
