@@ -172,15 +172,17 @@ SecurityEvent
 {% include codeHeader.html %}
 
 ```powershell
+let substring = @'CN={|}';
 SecurityEvent
-| where TimeGenerated > ago(10d)
+| where TimeGenerated > ago(1d)
 | where EventID in (5136, 5137, 5141)
 | extend pEventData = parse_xml(EventData)
 | extend ObjectClass = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[10].["#text"]
+| where ObjectClass == "groupPolicyContainer"
 | extend ObjectDN = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"]
 | extend DSName = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[6].["#text"]
-| extend SubjectUserName = parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[3].["#text"]
-| extend Editor = SubjectUserName, EditorDomain = SubjectDomainName
-| where ObjectClass == "groupPolicyContainer"
-| project TimeGenerated, EventID, tostring(GPODN = ObjectDN), tostring(GPDomain = DSName), Editor
+| extend SubjectUserName = tostring(parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[3].["#text"])
+| extend CN =  toupper(parse_json(tostring(parse_json(tostring(pEventData.EventData)).Data))[8].["#text"])
+| extend GPOID = tostring(parse_json(trim(substring,tostring(split(CN,",",0))))[0])
+| project TimeGenerated, EventID, GPOID, tostring(GPDomain = DSName), Editor = SubjectUserName
 ```
