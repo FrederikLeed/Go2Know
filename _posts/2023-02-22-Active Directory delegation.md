@@ -330,7 +330,7 @@ Import-Module admpwd.ps
     $AllGuid                      = [GUID]::Parse('00000000-0000-0000-0000-000000000000')
     
     #User
-    $PasswordResetGuid            = [GUID]::Parse('00299570-246d-11d0-a768-00aa006e0529') #https://learn.microsoft.com/en-us/windows/win32/adschema/a-othermobile
+    $PasswordResetGuid            = [GUID]::Parse('00299570-246d-11d0-a768-00aa006e0529') #https://learn.microsoft.com/en-us/windows/win32/adschema/r-user-force-change-password
     $pwdLastSetGuid               = [GUID]::Parse('bf967a0a-0de6-11d0-a285-00aa003049e2') #https://learn.microsoft.com/en-us/windows/win32/adschema/a-pwdlastset
     $LockoutTimeGuid              = [GUID]::Parse('28630ebf-41d5-11d1-a9c1-0000f80367c1') #https://learn.microsoft.com/en-us/windows/win32/adschema/a-lockouttime
     
