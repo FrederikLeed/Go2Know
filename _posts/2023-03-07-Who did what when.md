@@ -1,5 +1,5 @@
 ---
-title: "Who did what to which object, when?"
+title: "How to track changes in Active Directory"
 categories:
   - Hunting
 author:

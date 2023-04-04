@@ -1,5 +1,5 @@
 ---
-title: "Member server inventory - local groups"
+title: "Who has access to your servers"
 categories:
   - Windows
 author:
@@ -11,7 +11,7 @@ tags:
 layout: post  
 ---
 
-Who has access to your servers?
+Member server inventory - local groups
 
 ## Why do we need to know?
 

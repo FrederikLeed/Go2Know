@@ -1,5 +1,5 @@
 ---
-title: "About owner rights in Active Directory"
+title: "Abusing owner rights in Active Directory"
 categories:
   - Active Directory
 author:
