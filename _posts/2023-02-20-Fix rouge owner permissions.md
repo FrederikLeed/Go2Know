@@ -177,7 +177,7 @@ Function Set-ADObjectOwner{
 
 Leveraging the power of Powershell (pun intented) we can easily fix multiple objects using a relatively small effort. Here we are combining the script to detect with the function to fix.
 
-The script can be downloaded [here](https://github.com/FrederikLeed/AD/blob/main/Delegation/fix_rouge_owners.ps1)
+The script can be downloaded [here](https://github.com/FrederikLeed/scripts-n-queries/blob/6391cd79514e2d85e7c72526dc68299f63d24296/ActiveDirectory/fix_rouge_owners.ps1)
 
 {% include codeHeader.html %}
 
