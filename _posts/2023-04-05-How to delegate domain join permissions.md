@@ -46,7 +46,6 @@ Here is quick sample of the core functionality of delegating domain join permiss
     $computerguid = [System.Guid](Get-ADObject -Identity ("CN=Computer," + $rootdse.SchemaNamingContext) -Properties schemaIDGUID).schemaIDGUID
 
 function Set-DomainJoinPermissions($groupname, $ou){
-    #http://support.microsoft.com/kb/932455
     # Create Computer Accounts
     # Delete Computer Accounts
     # Reset Password
