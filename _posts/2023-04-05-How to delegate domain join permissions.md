@@ -18,11 +18,11 @@ De-privileging the account(s) used for joining computers to the domain.
 
 Why do we need to use least-privilege permissions? In very simple words: **Cleaning up your permissions will help you be more resilient to attacks**
 
-Way too often we see accounts used for domain join activities being member of higly privileged groups in Active Directory, like "Domain Admins" or "Administrators". These accounts are normally easy for an attacker, with access to corporate network, to compromise, since the account credentials are exposed during the OSDeployment process. (They have to be or they cannot be used).
+Way too often we see accounts used for domain join activities being member of higly privileged groups in Active Directory, like "Domain Admins" or "Administrators". These accounts are normally easy for an attacker, with access to corporate network, to compromise, since the account credentials are exposed during the OSDeployment process. (This is by design).
 
-One of the skilled consultants at [MicrosoftIR](https://aka.ms/MicrosoftIR) has created a great article about de-priviliging. You shoud give it a [read](https://techcommunity.microsoft.com/t5/security-compliance-and-identity/why-de-privileging/ba-p/3779519).
+One of the skilled consultants at [MicrosoftIR](https://aka.ms/MicrosoftIR) has created a great article about de-priviliging and why it is so important. You shoud give it a [read](https://techcommunity.microsoft.com/t5/security-compliance-and-identity/why-de-privileging/ba-p/3779519).
 
-Tips when creating new delegations for domian join!
+## Tips when creating new delegations for domian join
 
  - Single use service accounts!
  - Single use passwords!
@@ -30,9 +30,11 @@ Tips when creating new delegations for domian join!
  - If your Active Directory is tiered, use separate accounts for each tier
  - Delegate permissions to groups and not users directly. This makes reviewing AD permissions easier.
 
-
-Here is quick sample of the core functionality of delegating domain join permissions. For a more extensive solution, keep reading!
 ## Isolated delegation function ![powershell](/assets/images/powershell.png){:width="30px"}
+
+Here is quick sample of the core functionality of delegating domain join permissions.
+
+ - For a more extensive solution, keep reading!
 
 {% include codeHeader.html %}
 
