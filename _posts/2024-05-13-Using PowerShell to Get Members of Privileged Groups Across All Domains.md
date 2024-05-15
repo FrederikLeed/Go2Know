@@ -99,15 +99,15 @@ $MemberDetails.Keys | ForEach-Object {
         DisplayName       = $user.displayName
         Groups            = $user.groups -join ', '
     }
-} | Out-GridView
-#} | Export-Csv -Path "PrivilegedGroupMembers.csv" -NoTypeInformation
+#} | Out-GridView
+} | Export-Csv -Path "PrivilegedGroupMembers.csv" -NoTypeInformation
 
-##Write-Host "Output has been saved to 'PrivilegedGroupMembers.csv'"
+Write-Host "Output has been saved to 'PrivilegedGroupMembers.csv'"
 ```
 
 ## How to Use the Script
 
-1. **Prerequisites: Ensure you have the necessary permissions to query AD groups and members. You may need to run the script with elevated privileges.
+1. **Prerequisites: Ensure you have the necessary permissions to query AD groups and members. You may need to run the script with elevated privileges. (Regular "Domain User" membership should be enough)
 2. **Run the Script: Execute the script in a PowerShell environment on a machine that has access to your AD forest.
 3. **Review the Output: The script will generate a CSV file named PrivilegedGroupMembers.csv in the current directory. This file contains details of the users and their group memberships.
 
