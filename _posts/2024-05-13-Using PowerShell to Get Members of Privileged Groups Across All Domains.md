@@ -36,6 +36,8 @@ The provided PowerShell script performs the following tasks:
 
 Here is the full script:
 
+{% include codeHeader.html %}
+
 ```powershell
 # PowerShell script to get members of specific groups and their attributes across all domains
 
