@@ -39,18 +39,16 @@ Here is the full script:
 {% include codeHeader.html %}
 
 ```powershell
-# PowerShell script to get members of specific groups and their attributes across all domains
-
 # Define privileged and exclusive groups
 $AdminGroups = @(
     "Account Operators", "Administrators", "Backup Operators", "Cert Publishers",
     "DNSAdmins", "Domain Admins", "Key Admins", "Print Operators", "Replicator",
     "Server Operators", "Network Configuration Operators",
-    "Incoming Forest Trust Builders", "Domain Controllers", "Group Policy Creator Owners",
-    "Read-only Domain Controllers", "Exchange Servers"
+    "Domain Controllers", "Group Policy Creator Owners",
+    "Read-only Domain Controllers"
 )
 $ExclusiveGroups = @(
-    "Enterprise Admins", "Enterprise Key Admins", "Schema Admins"
+    "Enterprise Admins", "Enterprise Key Admins", "Schema Admins", "Exchange Servers","Incoming Forest Trust Builders"
 )
 
 # Initialize result hashtable
@@ -66,6 +64,9 @@ foreach ($domain in $forest.Domains) {
     if ($domain.Name -eq $forest.RootDomain.Name) {
         $groupsToQuery += $ExclusiveGroups
     }
+
+    # Get the domain NetBIOS name
+    $domainNetBIOS = (Get-ADDomain -Identity $domain.Name).NetBIOSName
 
     foreach ($group in $groupsToQuery) {
         try {
@@ -84,7 +85,7 @@ foreach ($domain in $forest.Domains) {
                         groups         = New-Object System.Collections.ArrayList
                     }
                 }
-                [void]$MemberDetails[$userKey].groups.Add($group)
+                [void]$MemberDetails[$userKey].groups.Add("$domainNetBIOS\$group")
             }
         } catch {
             Write-Warning "Could not process group '$group' in domain '$($domain.Name)': $_"
@@ -101,8 +102,8 @@ $MemberDetails.Keys | ForEach-Object {
         DisplayName       = $user.displayName
         Groups            = $user.groups -join ', '
     }
-#} | Out-GridView
 } | Export-Csv -Path "PrivilegedGroupMembers.csv" -NoTypeInformation
+#} | Out-GridView
 
 Write-Host "Output has been saved to 'PrivilegedGroupMembers.csv'"
 ```
