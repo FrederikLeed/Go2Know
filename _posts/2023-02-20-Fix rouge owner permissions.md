@@ -1,379 +1,169 @@
 ---
-title: "Abusing owner rights in Active Directory"
+title: "Fixing Rogue Object Ownership in Active Directory"
+excerpt: "Object ownership in AD grants implicit WriteDacl — a direct path to privilege escalation. Here's how to detect and fix it."
+date: 2023-02-20
+last_modified_at: 2023-02-20
 categories:
-  - Active Directory
-author:
- - Frederik Leed
-tags:
-  - Microsoft
   - Security
-  - Powershell
-layout: post
+tags:
+  - Active Directory
+  - PowerShell
+  - Least Privilege
+toc: true
+toc_label: "Contents"
+toc_sticky: true
+header:
+  teaser: /assets/images/Microsoft_ActiveDirectory.png
 ---
 
-In Active Directory, the object owner refers to the user or group that has ownership of an object. This permission can be abused!
+Every object in Active Directory has an owner. That owner has implicit `WRITE_DAC` — the ability to modify the object's permissions. If a non-admin user owns a privileged object, they can grant themselves full control without any additional rights.
 
-![Microsoft Active Directory](/assets/images/Microsoft_ActiveDirectory.png){:width="360px"}
+This is [MITRE T1222.001](https://attack.mitre.org/techniques/T1222/001/) — and tools like BloodHound map it as an `Owns` edge directly to the target.
 
-<!-- TOC start -->
-- [Active Directory object ownership](#active-directory-object-ownership)
-- [How can object ownership be abused?](#how-can-object-ownership-be-abused)
-- [Detect object ownership discrepancies](#detect-object-ownership-discrepancies)
-- [Set owner rights on AD objects](#set-owner-rights-on-ad-objects)
-  * [Scheduling script to prevent future deviances](#scheduling-script-to-prevent-future-deviances)
-  * [Scheduled task creation](#scheduled-task-creation)
-<!-- TOC end -->
+## Why ownership matters
 
-## Active Directory object ownership
+The owner field lives in the security descriptor. It implicitly grants two rights:
 
-In Active Directory, the object owner refers to the user or group that has ownership of an object. The owner of a securable object (represented by the Owner SID field in the security descriptor) has the READ_CONTROL and WRITE_DAC rights implicitly granted.
+- **READ_CONTROL** — read the DACL
+- **WRITE_DAC** — modify the DACL
 
-**WRITE_DAC** is a powerfull right. WRITE_DAC: The right to modify the discretionary access control list (DACL) in the object's security descriptor.
+`WRITE_DAC` is the dangerous one. An attacker who owns a Domain Admin account can:
 
-**Discretionary Access Control List**
+1. Grant themselves `GenericAll` on the object
+2. Reset the password
+3. Authenticate as that account
 
-(DACL) An access control list that is controlled by the owner of an object and that specifies the access particular users or groups can have to the object.
+The same applies to computer objects. Own a domain controller? Write its DACL, grant yourself `DCSync` rights, dump every credential in the domain.
 
-By default, the user who creates an object in Active Directory is set as the owner of that object. However, ownership can be transferred to another user or group by changing the ownership of the object.
+This is not theoretical — it's a three-step chain: `WriteOwner → WriteDacl → GenericAll`. BloodHound and AD_Miner flag these paths automatically.
 
-## How can object ownership be abused? ![Hacker](/assets/images/hacker-icon.png){:width="50px"}
+## What should be checked
 
-An attack on Active Directory using owner permissions in Active Directory could involve an attacker gaining ownership of a high-privileged object, such as a domain controller, by compromising the account of the current owner.
+Focus on objects where compromise means domain or forest compromise:
 
-- Example 1: Once the attacker gains ownership of the object, they can use their new permissions to reset the password of the object and thus be able to authenticate as that object. In case of a domain admin or a domain controller, that permission can be used to create or modify other objects within the directory, including user accounts, groups, and permissions, among others. With these new permissions, the attacker can gain elevated privileges and perform actions that are outside the scope of their normal privileges.
+| Object type | Examples |
+|---|---|
+| Built-in admin groups | Domain Admins, Enterprise Admins, Schema Admins, Administrators |
+| Operator groups | Account Operators, Backup Operators, Server Operators, Print Operators |
+| Domain controllers | All DC computer objects |
+| Tier 0 servers | Entra Connect, ADFS, ADCS, SCCM |
+| Privileged users | Members of the groups above |
+| Domain object | The domain head itself |
 
-- Example 2: Even if an owner does not have write permission to a specific object, the owner is able to assign write permissions or any other permissions on a given object. (Example: Ability to read LAPS password or ability to reset password enabling sign-in as user or computer)
+The expected owner for all of these is `Domain Admins` or `NT AUTHORITY\SYSTEM`. Anything else is a finding.
 
-To prevent such attacks, it is important to regularly review and monitor the ownership and permissions of high-privileged objects within Active Directory, and to ensure that access to these objects is restricted only to authorized individuals.
+## Detect rogue ownership
 
-## Detect object ownership discrepancies
-
-In Active Directory, securing some assets are of higher priority due to extended permissionsets. These assets include but are not limited to Built-In administrator and operator groups and members, Domain controller objects, other computer objects like AADConnect, ADFS, ADCS.
-
-Here we have written a few lines of powershell to report on privilged AD Objects where Owner does not match "Domain Admins". There is a mention about AD tiering in the script, read about it [here](https://petri.com/use-microsofts-active-directory-tier-administrative-model/)
-
-{% include codeHeader.html %}
+This script collects all privileged objects and flags any where the owner is not `Domain Admins` or `SYSTEM`.
 
 ```powershell
-$AdminGroups = @"
-Account Operators
-Administrators
-Backup Operators
-Cert Publishers
-DNSAdmins
-Domain Admins
-Enterprise Admins
-Enterprise Key Admins
-Key Admins
-Print Operators
-Replicator
-Schema Admins
-Server Operators
-"@
+# Privileged built-in groups to check
+$AdminGroups = @(
+    'Account Operators', 'Administrators', 'Backup Operators',
+    'Cert Publishers', 'DNSAdmins', 'Domain Admins',
+    'Enterprise Admins', 'Enterprise Key Admins', 'Key Admins',
+    'Print Operators', 'Replicator', 'Schema Admins', 'Server Operators'
+)
 
-#Modify this to match your environment
-$PrivilegedServers = @"
-adfs01
-adfs02
-ca01
-ca02
-aadc01
-aadc02
-"@
+# Tier 0 servers — adjust to match your environment
+$PrivilegedServers = @('adfs01', 'adfs02', 'ca01', 'ca02', 'aadc01', 'aadc02')
 
-$Privilegedgroups = $AdminGroups.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) | % {
-    Get-ADGroup $_
-}
+# Collect all privileged AD objects
+$privilegedObjects = @()
+$privilegedObjects += $AdminGroups | ForEach-Object { Get-ADGroup $_ }
+$privilegedObjects += $AdminGroups | ForEach-Object { Get-ADGroupMember $_ -Recursive }
+$privilegedObjects += Get-ADDomainController -Filter * | ForEach-Object { Get-ADComputer $_.Name }
+$privilegedObjects += $PrivilegedServers | ForEach-Object { Get-ADComputer $_ }
 
-$PrivilegedGroupMembers = $AdminGroups.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) | % {
-    Get-ADGroupMember $_ -Recursive
-}
+# Deduplicate
+$privilegedObjects = $privilegedObjects | Sort-Object DistinguishedName -Unique
 
-$PrivilegedServerObjects = $privilegedservers.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) | % {
-    Get-ADComputer $_
-}
-
-#If AD tiering is applied, looping through all objects within tier0 would be advised.
-$ObjecctsInOU = Get-ADObject -filer * -SearchBase "OU=Tier0,OU=admin,DC=domain,DC=com"
-
-$domaincontrollers = Get-ADDomainController -Filter *
-
-#Adding all adobjects into single variable to enable looping through data.
-$totalobjects = ($Privilegedgroups + $PrivilegedGroupMembers + $domaincontrollers + $PrivilegedServerObjects + $ObjecctsInOU) | select -Unique
-
-$rougeownerobjects = $totalobjects | foreach-object{
-
-    $owner = (Get-Acl -Path ("AD:\" + $_.distinguishedname) -ErrorAction Stop).Owner
-    if($owner -notmatch "Domain Admins|SYSTEM"){
-            #Create new psobject with owner and attributes available for output
-            $Object = New-Object PSObject -Property @{
-                distinguishedname    = $_.distinguishedname
-                owner                = $owner
-                ObjectClass          = $_.ObjectClass
-            }
-        
-            $Object        
-    }
-}
-
-$rougeownerobjects | out-gridview #The Out-GridView cmdlet sends the output from a command to a grid view window where the output is displayed in an interactive table.
-```
-
-After reviewing the output, a script could be used to fix deviating objects.
-
-## Set owner rights on AD objects
-
-To set owners on existing objects, I have written this small function.
-
-{% include codeHeader.html %}
-
-```powershell
-<#
-.SYNOPSIS
-Sets the owner of an Active Directory object to a specified group.
-
-.DESCRIPTION
-This function sets the owner of an Active Directory object to a specified group.
-The object must be of type user, computer, organizationalUnit, or group.
-
-.PARAMETER NewOwnerGroup
-The name of the group that should be set as the new owner of the object.
-
-.PARAMETER ADObject
-The Active Directory object to set the owner for.
-
-.EXAMPLE
-SetObjectOwner -NewOwnerGroup "Domain Admins" -ADObject (Get-ADUser jdoe)
-
-Sets the owner of the user account with the username "jdoe" to the "Domain Admins" group.
-
-.NOTES
-Author: [Author Name]
-Date: [Date]
-#>
-Function Set-ADObjectOwner{
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true,Position=0)]
-        [string]$NewOwnerGroup,
-        [Parameter(Mandatory=$true,Position=1)]
-        [Microsoft.ActiveDirectory.Management.ADObject]$ADObject
-    )
-
-    # Get the object's current ACL
-    $objPath = "AD:\" + $ADObject.DistinguishedName
-    $acl = Get-Acl -Path $objPath
-
-    # Create a new NTAccount object for the new owner group
-    $adAccount = New-Object System.Security.Principal.NTAccount((Get-ADDomain -Current LoggedOnUser).DNSRoot, $NewOwnerGroup)
-
-    # Set the owner of the ACL to the new NTAccount object
-    $acl.SetOwner([Security.Principal.NTaccount]$adAccount)
-
-    # Apply the updated ACL to the object
-    Set-Acl -Path $objPath -AclObject $acl
-}
-```
-
-Leveraging the power of Powershell (pun intented) we can easily fix multiple objects using a relatively small effort. Here we are combining the script to detect with the function to fix.
-
-The script can be downloaded [here](https://github.com/FrederikLeed/scripts-n-queries/blob/6391cd79514e2d85e7c72526dc68299f63d24296/ActiveDirectory/fix_rouge_owners.ps1)
-
-{% include codeHeader.html %}
-
-```powershell
-<#
-.SYNOPSIS
-Sets the owner of an Active Directory object to a specified group.
-
-.DESCRIPTION
-This function sets the owner of an Active Directory object to a specified group.
-The object must be of type user, computer, organizationalUnit, or group.
-
-.PARAMETER NewOwnerGroup
-The name of the group that should be set as the new owner of the object.
-
-.PARAMETER ADObject
-The Active Directory object to set the owner for.
-
-.EXAMPLE
-SetObjectOwner -NewOwnerGroup "Domain Admins" -ADObject (Get-ADUser jdoe)
-
-Sets the owner of the user account with the username "jdoe" to the "Domain Admins" group.
-
-.NOTES
-Author: [Author Name]
-Date: [Date]
-#>
-Function Set-ADObjectOwner{
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true,Position=0)]
-        [string]$NewOwnerGroup,
-        [Parameter(Mandatory=$true,Position=1)]
-        [Microsoft.ActiveDirectory.Management.ADObject]$ADObject
-    )
-
-    # Get the object's current ACL
-    $objPath = "AD:\" + $ADObject.DistinguishedName
-    $acl = Get-Acl -Path $objPath
-
-    # Create a new NTAccount object for the new owner group
-    $adAccount = New-Object System.Security.Principal.NTAccount((Get-ADDomain -Current LoggedOnUser).DNSRoot, $NewOwnerGroup)
-
-    # Set the owner of the ACL to the new NTAccount object
-    $acl.SetOwner([Security.Principal.NTaccount]$adAccount)
-
-    # Apply the updated ACL to the object
-    Set-Acl -Path $objPath -AclObject $acl
-}
-
-function Write-Log {
-    [CmdletBinding()]
-    param(
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [string]$Message,
- 
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [ValidateSet('Information','Warning','Error')]
-        [string]$Severity = 'Information',
-
-        [Parameter()]
-        [string]$LogFile = '.\logs\$Scriptfilename.csv',
-
-        [Parameter()]
-        [string]$LogFormat = '{0:g} [{1}] {2}'
-    )
- 
-    $logMessage = $LogFormat -f (Get-Date), $Severity, $Message
-
-    [pscustomobject]@{
-        Time = (Get-Date -f g)
-        Message = $Message
-        Severity = $Severity
-    } | Export-Csv -Path $LogFile -Append -NoTypeInformation
-
-    Write-Output $logMessage
- }
-
-$Scriptfilename = $MyInvocation.MyCommand.Name
-
-$AdminGroups = @"
-Account Operators
-Administrators
-Backup Operators
-Cert Publishers
-DNSAdmins
-Domain Admins
-Enterprise Admins
-Enterprise Key Admins
-Key Admins
-Print Operators
-Replicator
-Schema Admins
-Server Operators
-"@
-
-#Modify this to match your environment
-$PrivilegedServers = @"
-adfs01
-adfs02
-ca01
-ca02
-aadc01
-aadc02
-"@
-
-$Privilegedgroups = $AdminGroups.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) | % {
-    Get-ADGroup $_
-}
-
-$PrivilegedGroupMembers = $AdminGroups.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) | % {
-    Get-ADGroupMember $_ -Recursive
-}
-
-$PrivilegedServerObjects = $privilegedservers.Split([System.Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries) | % {
-    Get-ADComputer $_
-}
-
-#If AD tiering is applied, looping through all objects within tier0 would be advised.
-$ObjecctsInOU = Get-ADObject -filer * -SearchBase "OU=Tier0,OU=admin,DC=domain,DC=com"
-
-$domaincontrollers = Get-ADDomainController -Filter *
-
-#Adding all adobjects into single variable to enable looping through data.
-$totalobjects = ($Privilegedgroups + $PrivilegedGroupMembers + $domaincontrollers + $PrivilegedServerObjects + $ObjecctsInOU) | select -Unique
-
-$totalobjects | foreach-object{
-
-    $owner = (Get-Acl -Path ("AD:\" + $_.distinguishedname) -ErrorAction Stop).Owner
-    if($owner -notmatch "Domain Admins|SYSTEM"){
-        Try{
-            Set-ADObjectOwner -NewOwnerGroup "Domain Admins" -ADObject $_
-            Write-Log -Message ($_.name + " OldOwner: " + $owner) -Severity Information
-        }catch{
-            Write-Log -Message ("Operations failed: " + $_.name + " Error: " + $Error) -Severity Error
+# Check ownership
+$rogueOwners = foreach ($obj in $privilegedObjects) {
+    $owner = (Get-Acl -Path "AD:\$($obj.DistinguishedName)").Owner
+    if ($owner -notmatch 'Domain Admins|SYSTEM') {
+        [PSCustomObject]@{
+            Name              = $obj.Name
+            ObjectClass       = $obj.ObjectClass
+            Owner             = $owner
+            DistinguishedName = $obj.DistinguishedName
         }
     }
 }
+
+$rogueOwners | Format-Table -AutoSize
 ```
 
-### Scheduling script to prevent future deviances
+If the output is empty, you're clean. If not — fix it.
 
-**Important!**
-While scheduling something like this makes sense, you need to make sure that the host used to execute a task like this, is protected at a level equal to domain controllers. The account used to execute the script needs domain admin. While it IS possible to delegate permissions where membership of the domain admins group is not required, BUT, the delegated permission would enable escalation to domain admin anyway.  (Modify owner and change DACL)
+## Fix ownership
 
-Scheduled scripts need to run with a set of stored credentials. To reduce risk, we use [gMSA](https://learn.microsoft.com/en-us/windows-server/security/group-managed-service-accounts/group-managed-service-accounts-overview)
-
- gMSAs can help improve security by reducing the risk of credential theft and reducing the need for manual password management. With gMSAs, passwords are managed automatically by Active Directory, and are automatically changed every 30 days, making it more difficult for an attacker to gain access to the account.
-
-Small function to use powershell to create a new gMSA
-
-{% include codeHeader.html %}
+Small function that sets the owner of any AD object to a specified group:
 
 ```powershell
-Function NewgMSA{
-[CmdletBinding()]
-param (
-    [Parameter(Mandatory = $true)]
-    [string]$gMSAname,
+function Set-ADObjectOwner {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$NewOwnerGroup,
 
-    [Parameter(Mandatory = $true)]
-    [string]$schedulingHost
-)
-
-$ADDomain = Get-ADDomain
-
-# Create gMSA
-    New-ADServiceAccount -Name $gMSAname -DNSHostName ($gMSAname + "." + $ADDomain.DNSRoot) -Enabled $True
-
-# Grant permission to retrieve managed password to scheduling host
-    $props = @{
-        Identity = $gMSAname
-        PrincipalsAllowedToRetrieveManagedPassword = $schedulingHost
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [Microsoft.ActiveDirectory.Management.ADObject]$ADObject
+    )
+    process {
+        $path = "AD:\$($ADObject.DistinguishedName)"
+        $acl = Get-Acl -Path $path
+        $domain = (Get-ADDomain -Current LoggedOnUser).DNSRoot
+        $account = New-Object System.Security.Principal.NTAccount($domain, $NewOwnerGroup)
+        $acl.SetOwner($account)
+        Set-Acl -Path $path -AclObject $acl
     }
-    Set-ADServiceAccount @props
 }
 ```
 
-### Scheduled task creation
+Pipe the detection output straight into the fix:
 
-Create scheduled task using ui.
+```powershell
+# Fix all rogue owners — sets ownership to Domain Admins
+$rogueOwners | ForEach-Object {
+    $obj = Get-ADObject $_.DistinguishedName
+    try {
+        $obj | Set-ADObjectOwner -NewOwnerGroup 'Domain Admins'
+        Write-Output "Fixed: $($_.Name) (was: $($_.Owner))"
+    }
+    catch {
+        Write-Warning "Failed: $($_.Name) — $($_.Exception.Message)"
+    }
+}
+```
 
-- Program: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
-- Argument: -file "FixRougeOwners.ps1"
-- Start in: c:\scripts
+## Automate it
 
-![Task settings](/assets/images/schtask_ownerrights.png)
+Ownership drifts over time. Users who create objects become owners by default. Schedule the fix to run regularly.
 
-Then, after the task has been created, make it run using the gMSA.
+**Important:** The account running this script needs the ability to take ownership and modify DACLs on privileged objects — effectively Domain Admin level access. The host executing it must be protected at the same tier as your domain controllers.
 
-Example:
+Use a **gMSA** (Group Managed Service Account) instead of storing credentials:
 
-{% include codeHeader.html %}
+```powershell
+# Create gMSA for the scheduled task
+$domain = Get-ADDomain
+New-ADServiceAccount -Name 'gMSA_FixOwners' `
+    -DNSHostName "gMSA_FixOwners.$($domain.DNSRoot)" -Enabled $true
+
+# Allow the scheduling host to retrieve the managed password
+Set-ADServiceAccount -Identity 'gMSA_FixOwners' `
+    -PrincipalsAllowedToRetrieveManagedPassword 'YOURSERVER$'
+```
+
+Create the scheduled task, then switch it to the gMSA:
 
 ```batch
-schtasks.exe /change /RU "DOMAIN\gMSA_OwnerRights$" /TN "\Maintenance\FixOwnerPermission" /RP
+schtasks.exe /change /RU "DOMAIN\gMSA_FixOwners$" /TN "\Maintenance\FixOwnerPermission" /RP
 ```
+
+The gMSA password is managed by AD automatically (240-byte random, rotated every 30 days). No credentials to store, no passwords to rotate.
+
+## Conclusion
+
+Rogue object ownership is easy to overlook and easy to exploit. An attacker with `Owns` on a single privileged object can escalate to Domain Admin in three steps. Detect it, fix it, and schedule it so it stays fixed.
