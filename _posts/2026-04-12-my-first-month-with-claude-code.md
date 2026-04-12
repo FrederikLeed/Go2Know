@@ -16,7 +16,7 @@ toc_sticky: true
 published: false
 ---
 
-I've been using AI coding agents for a few months now — ChatGPT Pro, GitHub Copilot, and eventually Claude Code. They're all useful in different ways, but they all share the same problem: they run on your machine with your permissions, they forget everything between sessions, and you can't manage multiple agents doing different work.
+I've been using AI tools for over a year now — starting with ChatGPT Pro, then GitHub Copilot for about six months, and eventually Claude Code. They're all useful in different ways, but they all share the same problem: they run on your machine with your permissions, they forget everything between sessions, and you can't manage multiple agents doing different work.
 
 I'm a security consultant. I work on multiple customer projects simultaneously, each with sensitive data that shouldn't bleed into the other. I needed an architecture that treats AI agents the way I treat admin workstations — isolated, segmented, and auditable.
 
