@@ -47,115 +47,42 @@ The default owner is whoever created the object. That's fine for regular user ac
 
 The expected owner for all of these is `Domain Admins` or `NT AUTHORITY\SYSTEM`. Anything else should be investigated.
 
-## Detect rogue ownership
+## Detect and fix
 
-This script collects all privileged objects and flags any where the owner is unexpected.
+Check the owner of every privileged object. If it's not `Domain Admins` or `SYSTEM` — fix it.
 
 ```powershell
-# Privileged built-in groups to check
-$AdminGroups = @(
-    'Account Operators', 'Administrators', 'Backup Operators',
-    'Cert Publishers', 'DNSAdmins', 'Domain Admins',
-    'Enterprise Admins', 'Enterprise Key Admins', 'Key Admins',
-    'Print Operators', 'Replicator', 'Schema Admins', 'Server Operators'
-)
-
-# Tier 0 servers — adjust to match your environment
-$PrivilegedServers = @('adfs01', 'adfs02', 'ca01', 'ca02', 'aadc01', 'aadc02')
-
-# Collect all privileged AD objects
-$privilegedObjects = @()
-$privilegedObjects += $AdminGroups | ForEach-Object { Get-ADGroup $_ }
-$privilegedObjects += $AdminGroups | ForEach-Object { Get-ADGroupMember $_ -Recursive }
-$privilegedObjects += Get-ADDomainController -Filter * | ForEach-Object { Get-ADComputer $_.Name }
-$privilegedObjects += $PrivilegedServers | ForEach-Object { Get-ADComputer $_ }
-
-# Deduplicate
-$privilegedObjects = $privilegedObjects | Sort-Object DistinguishedName -Unique
-
-# Check ownership
-$rogueOwners = foreach ($obj in $privilegedObjects) {
-    $owner = (Get-Acl -Path "AD:\$($obj.DistinguishedName)").Owner
-    if ($owner -notmatch 'Domain Admins|SYSTEM') {
-        [PSCustomObject]@{
-            Name              = $obj.Name
-            ObjectClass       = $obj.ObjectClass
-            Owner             = $owner
-            DistinguishedName = $obj.DistinguishedName
-        }
-    }
+# Collect privileged objects — groups, members, DCs
+$objects = @()
+$objects += 'Account Operators','Administrators','Backup Operators','Domain Admins',
+            'Enterprise Admins','Schema Admins','Server Operators' | ForEach-Object {
+    Get-ADGroup $_
+    Get-ADGroupMember $_ -Recursive
 }
+$objects += Get-ADDomainController -Filter * | ForEach-Object { Get-ADComputer $_.Name }
+$objects = $objects | Sort-Object DistinguishedName -Unique
 
-$rogueOwners | Format-Table -AutoSize
-```
+# Check and fix ownership
+$domain = (Get-ADDomain).DNSRoot
+$newOwner = New-Object System.Security.Principal.NTAccount($domain, 'Domain Admins')
 
-If the output is empty — you're clean. If not, keep reading.
-
-## Fix ownership
-
-Small function that sets the owner of any AD object to a specified group:
-
-```powershell
-function Set-ADObjectOwner {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$NewOwnerGroup,
-
-        [Parameter(Mandatory, ValueFromPipeline)]
-        [Microsoft.ActiveDirectory.Management.ADObject]$ADObject
-    )
-    process {
-        $path = "AD:\$($ADObject.DistinguishedName)"
-        $acl = Get-Acl -Path $path
-        $domain = (Get-ADDomain -Current LoggedOnUser).DNSRoot
-        $account = New-Object System.Security.Principal.NTAccount($domain, $NewOwnerGroup)
-        $acl.SetOwner($account)
-        Set-Acl -Path $path -AclObject $acl
+foreach ($obj in $objects) {
+    $acl = Get-Acl -Path "AD:\$($obj.DistinguishedName)"
+    if ($acl.Owner -notmatch 'Domain Admins|SYSTEM') {
+        Write-Output "Fixing: $($obj.Name) (owner: $($acl.Owner))"
+        $acl.SetOwner($newOwner)
+        Set-Acl -Path "AD:\$($obj.DistinguishedName)" -AclObject $acl
     }
 }
 ```
 
-Pipe the detection output straight into the fix:
-
-```powershell
-# Fix all rogue owners — sets ownership to Domain Admins
-$rogueOwners | ForEach-Object {
-    $obj = Get-ADObject $_.DistinguishedName
-    try {
-        $obj | Set-ADObjectOwner -NewOwnerGroup 'Domain Admins'
-        Write-Output "Fixed: $($_.Name) (was: $($_.Owner))"
-    }
-    catch {
-        Write-Warning "Failed: $($_.Name) — $($_.Exception.Message)"
-    }
-}
-```
+Add your Tier 0 servers (Entra Connect, ADFS, ADCS, etc.) to the `$objects` collection to cover those too.
 
 ## Automate it
 
-Ownership drifts. Every time someone creates an object, they become the owner. A privileged group created by a junior admin today is a finding waiting to happen. Schedule the fix to run regularly.
+Ownership drifts — every time someone creates an object, they become the owner. Schedule this to run regularly using a **gMSA** so there are no stored credentials.
 
-**Important:** The account running this needs the ability to take ownership and modify DACLs on privileged objects — effectively Domain Admin level access. The host executing it must be protected at the same tier as your domain controllers.
-
-Use a **gMSA** instead of storing credentials. The password is managed by AD automatically — 240 bytes random, rotated every 30 days. Nothing to store, nothing to rotate.
-
-```powershell
-# Create gMSA for the scheduled task
-$domain = Get-ADDomain
-New-ADServiceAccount -Name 'gMSA_FixOwners' `
-    -DNSHostName "gMSA_FixOwners.$($domain.DNSRoot)" -Enabled $true
-
-# Allow the scheduling host to retrieve the managed password
-Set-ADServiceAccount -Identity 'gMSA_FixOwners' `
-    -PrincipalsAllowedToRetrieveManagedPassword 'YOURSERVER$'
-```
-
-Create the scheduled task, then switch it to the gMSA:
-
-```batch
-schtasks.exe /change /RU "DOMAIN\gMSA_FixOwners$" /TN "\Maintenance\FixOwnerPermission" /RP
-```
+**Important:** The account running this needs Domain Admin level access. The host executing it must be protected at the same tier as your domain controllers.
 
 ## Conclusion
 
