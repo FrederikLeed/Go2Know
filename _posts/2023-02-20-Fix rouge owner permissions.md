@@ -16,30 +16,25 @@ header:
   teaser: /assets/images/Microsoft_ActiveDirectory.png
 ---
 
-Every object in Active Directory has an owner. That owner has implicit `WRITE_DAC` — the ability to modify the object's permissions. If a non-admin user owns a privileged object, they can grant themselves full control without any additional rights.
+I keep running into this during security assessments: a helpdesk admin created a service account three years ago, and nobody noticed that they became the owner of that object. That service account is now a member of Domain Admins — and the helpdesk admin can take full control of it without anyone granting them a single permission.
 
-This is [MITRE T1222.001](https://attack.mitre.org/techniques/T1222/001/) — and tools like BloodHound map it as an `Owns` edge directly to the target.
+Object ownership in AD is that dangerous. The owner has implicit `WRITE_DAC`, which means they can modify the object's permissions. From there it's three steps to Domain Admin.
 
-## Why ownership matters
+## The attack chain
 
-The owner field lives in the security descriptor. It implicitly grants two rights:
+BloodHound maps this as an `Owns` edge, and the exploitation is straightforward:
 
-- **READ_CONTROL** — read the DACL
-- **WRITE_DAC** — modify the DACL
+1. **Owner modifies the DACL** — grants themselves `GenericAll` on the object
+2. **Resets the password** — or writes any attribute they want
+3. **Authenticates as that account** — game over
 
-`WRITE_DAC` is the dangerous one. An attacker who owns a Domain Admin account can:
+This works on any object type. Own a domain controller computer object? Grant yourself `DCSync` rights, dump every hash in the domain. Own the domain head itself? You control the entire directory.
 
-1. Grant themselves `GenericAll` on the object
-2. Reset the password
-3. Authenticate as that account
+This maps to [MITRE T1222.001](https://attack.mitre.org/techniques/T1222/001/) and both BloodHound and AD_Miner flag these paths automatically. The chain is `WriteOwner → WriteDacl → GenericAll` — and it's not theoretical. We see it in production environments constantly.
 
-The same applies to computer objects. Own a domain controller? Write its DACL, grant yourself `DCSync` rights, dump every credential in the domain.
+## What to check
 
-This is not theoretical — it's a three-step chain: `WriteOwner → WriteDacl → GenericAll`. BloodHound and AD_Miner flag these paths automatically.
-
-## What should be checked
-
-Focus on objects where compromise means domain or forest compromise:
+The default owner is whoever created the object. That's fine for regular user accounts, but for anything Tier 0 it's a problem. Focus on the objects where compromise means domain or forest compromise:
 
 | Object type | Examples |
 |---|---|
@@ -50,11 +45,11 @@ Focus on objects where compromise means domain or forest compromise:
 | Privileged users | Members of the groups above |
 | Domain object | The domain head itself |
 
-The expected owner for all of these is `Domain Admins` or `NT AUTHORITY\SYSTEM`. Anything else is a finding.
+The expected owner for all of these is `Domain Admins` or `NT AUTHORITY\SYSTEM`. Anything else is a finding worth investigating.
 
 ## Detect rogue ownership
 
-This script collects all privileged objects and flags any where the owner is not `Domain Admins` or `SYSTEM`.
+This script collects all privileged objects and flags any where the owner is unexpected.
 
 ```powershell
 # Privileged built-in groups to check
@@ -94,7 +89,7 @@ $rogueOwners = foreach ($obj in $privilegedObjects) {
 $rogueOwners | Format-Table -AutoSize
 ```
 
-If the output is empty, you're clean. If not — fix it.
+If the output is empty — you're clean. If not, keep reading.
 
 ## Fix ownership
 
@@ -139,11 +134,11 @@ $rogueOwners | ForEach-Object {
 
 ## Automate it
 
-Ownership drifts over time. Users who create objects become owners by default. Schedule the fix to run regularly.
+Ownership drifts. Every time someone creates an object, they become the owner. A privileged group created by a junior admin today is a finding waiting to happen. Schedule the fix to run regularly.
 
-**Important:** The account running this script needs the ability to take ownership and modify DACLs on privileged objects — effectively Domain Admin level access. The host executing it must be protected at the same tier as your domain controllers.
+**Important:** The account running this needs the ability to take ownership and modify DACLs on privileged objects — effectively Domain Admin level access. The host executing it must be protected at the same tier as your domain controllers.
 
-Use a **gMSA** (Group Managed Service Account) instead of storing credentials:
+Use a **gMSA** instead of storing credentials. The password is managed by AD automatically — 240 bytes random, rotated every 30 days. Nothing to store, nothing to rotate.
 
 ```powershell
 # Create gMSA for the scheduled task
@@ -162,8 +157,6 @@ Create the scheduled task, then switch it to the gMSA:
 schtasks.exe /change /RU "DOMAIN\gMSA_FixOwners$" /TN "\Maintenance\FixOwnerPermission" /RP
 ```
 
-The gMSA password is managed by AD automatically (240-byte random, rotated every 30 days). No credentials to store, no passwords to rotate.
-
 ## Conclusion
 
-Rogue object ownership is easy to overlook and easy to exploit. An attacker with `Owns` on a single privileged object can escalate to Domain Admin in three steps. Detect it, fix it, and schedule it so it stays fixed.
+Rogue object ownership is one of those things that's easy to overlook and trivial to exploit. Three steps from a forgotten `Owns` edge to Domain Admin. Detect it, fix it, schedule it — and stop worrying about it.
