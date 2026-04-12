@@ -115,17 +115,17 @@ AI coding agents typically run in a terminal on one machine. If you start a sess
 
 Docker is the source of truth for container state. claude-manager's SQLite database only stores supplemental metadata — human-readable names, tags, notes, activity history.
 
-## Is this unique?
+## What else is out there
 
-I looked around before writing this, and I couldn't find an existing solution that combines all of these pieces. Here's what's out there:
+I'm not the only one thinking about this. There are several projects tackling parts of the same problem:
 
-- **OpenHands** — per-conversation Docker isolation and a web UI, but no persistent memory across sessions. Every conversation starts fresh.
-- **AgentManager** — orchestrates up to 100 concurrent agents, but focused on parallel execution, not persistent per-project workspaces.
-- **HolyClaude** — web UI with multiple AI CLIs, but runs everything in one monolithic container. No isolation.
-- **ClaudeBox** — per-project Docker images, but CLI-only, no web UI, no multi-device access.
-- **NemoClaw** — excellent security sandbox for a single agent, but not a workspace management layer.
+- **OpenHands** — the largest open-source AI coding agent (70k+ stars). Per-conversation Docker isolation and a web UI. Closest to what I'm doing, but containers are ephemeral — each conversation starts fresh with no persistent memory. Different model: disposable sandboxes vs. persistent workspaces.
+- **AgentManager** — orchestrates up to 100 concurrent agents in parallel. Focused on running many short-lived tasks, not managing long-lived per-project environments.
+- **HolyClaude** — web UI with multiple AI CLIs pre-installed. Everything runs in one monolithic container though — no project isolation.
+- **ClaudeBox** — per-project Docker images via CLI. No web UI or multi-device access.
+- **NemoClaw** — NVIDIA's security sandbox for AI agents. Excellent isolation primitives (Landlock, seccomp, network namespaces) but it's a security layer, not a workspace management tool. Complementary to what I'm building — I want to bring their deny-by-default network model into my setup.
 
-The individual pieces all exist — Docker isolation, memory layers, web UIs, multi-device access. The combination of persistent, isolated, per-project agent workspaces with a management UI and multi-device access doesn't seem to exist elsewhere.
+The individual pieces all exist — Docker isolation, memory layers, web UIs, multi-device access. My setup combines them in a way that works for my workflow, but it's still a work in progress. Each of these projects solves the problem differently, and the right approach depends on what you need.
 
 ## Security concerns I'm still working on
 
