@@ -13,6 +13,7 @@ tags:
 toc: true
 toc_label: "Contents"
 toc_sticky: true
+mermaid: true
 published: false
 ---
 
@@ -84,31 +85,41 @@ AI coding agents typically run in a terminal on one machine. If you start a sess
 
 ## The architecture
 
-```
-┌─────────────────────────────────────────────┐
-│  Docker Host                                │
-│                                             │
-│  ┌──────────────┐  ┌──────────────┐         │
-│  │ claude-mgr   │  │ Project A    │         │
-│  │ (web UI)     │  │ container    │         │
-│  │ :3000        │  │              │         │
-│  └──────┬───────┘  └──────────────┘         │
-│         │          ┌──────────────┐         │
-│         ├──────────│ Project B    │         │
-│         │          │ container    │         │
-│         │          └──────────────┘         │
-│         │          ┌──────────────┐         │
-│  Docker │          │ Project C    │         │
-│  socket │          │ container    │         │
-│         │          └──────────────┘         │
-│         │                                   │
-│  ┌──────┴───────────────────────────────┐   │
-│  │  Shared volumes                      │   │
-│  │  /shared          (file exchange)    │   │
-│  │  /project-memory  (per-project)      │   │
-│  │  /home/claude/.claude (agent memory) │   │
-│  └──────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph host["Docker Host"]
+        mgr["claude-manager<br/>(web UI :3000)"]
+        socket[/"Docker Socket"/]
+
+        subgraph containers["Project Containers"]
+            a["Project A<br/>container"]
+            b["Project B<br/>container"]
+            c["Project C<br/>container"]
+        end
+
+        subgraph volumes["Shared Volumes"]
+            shared["/shared<br/>file exchange"]
+            memory["/project-memory<br/>per-project state"]
+            claude["/home/claude/.claude<br/>agent memory"]
+        end
+
+        mgr -->|manages| socket
+        socket -->|creates & controls| a
+        socket -->|creates & controls| b
+        socket -->|creates & controls| c
+
+        a -.->|mounts| shared
+        b -.->|mounts| shared
+        c -.->|mounts| shared
+        a -.->|mounts| memory
+        b -.->|mounts| memory
+        c -.->|mounts| memory
+        a -.->|mounts| claude
+        b -.->|mounts| claude
+        c -.->|mounts| claude
+    end
+
+    browser["Browser<br/>(any device)"] -->|":3000"| mgr
 ```
 
 **claude-manager** communicates with the Docker engine via the socket to create and manage sibling containers. Each project container is isolated — its own filesystem, its own network namespace, its own Claude Code session. The shared volumes provide controlled data exchange without breaking isolation.

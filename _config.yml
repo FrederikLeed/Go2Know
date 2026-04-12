@@ -22,6 +22,8 @@ github_username: frederikleed
 minimal_mistakes_skin: dark
 search: true
 breadcrumbs: true  # disabled by default
+mermaid:
+  version: "10.9.0"
 
 # Build settings
 markdown: kramdown
