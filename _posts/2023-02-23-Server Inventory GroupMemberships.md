@@ -1,78 +1,65 @@
 ---
-title: "Who has access to your servers"
+title: "Who Has Access to Your Servers"
+excerpt: "Audit local group memberships across your server fleet — because you need to know who has admin and RDP access."
+date: 2023-02-23
+last_modified_at: 2023-02-23
 categories:
   - Windows
-author:
- - Frederik Leed
 tags:
-  - Microsoft
+  - PowerShell
   - Security
-  - Powershell
-layout: single
+toc: true
+toc_label: "Contents"
+toc_sticky: true
 ---
 
-Member server inventory - local groups
+"Who has local admin on our servers?" If you can't answer that question in under a minute, you have a visibility problem.
 
-## Why do we need to know?
+Local group memberships on servers are one of the most overlooked attack surfaces. Someone adds a service account to the local Administrators group during a weekend migration, and it stays there for years. A contractor gets Remote Desktop access "temporarily" and nobody removes it.
 
-Knowing the members of local groups on servers is important for several reasons, including:
+## The script
 
-Security: The members of local groups on servers can include user accounts and groups that have access to sensitive resources and data. By knowing who is a member of these groups, server administrators can ensure that only authorized personnel have access to these resources and that security policies are being enforced.
-
-Troubleshooting: When troubleshooting issues on servers, it can be helpful to know which users and groups are members of certain local groups. This information can help administrators determine the cause of issues related to user permissions or access.
-
-Compliance: Many organizations are required to comply with regulations related to data access and security. Knowing the members of local groups on servers can help organizations demonstrate compliance with these regulations by providing an audit trail of who has access to sensitive data.
-
-In summary, understanding the membership of local groups on servers is an important aspect of server management, security, and compliance.
-
-## The script! ![powershell](/assets/images/powershell.png){:width="30px"}
-
-{% include codeHeader.html %}
+This pulls the members of local Administrators and Remote Desktop Users from every server in an OU. It uses WinRM, so no agent required — just connectivity.
 
 ```powershell
-# Set the root OU for the search
 $root = "OU=Servers,OU=Tier0,OU=adm,DC=domain,DC=com"
-
-# Set the groups to query
 $groups = "Administrators", "Remote Desktop Users"
 
-# Loop through each computer in the search base
 Get-ADComputer -SearchBase $root -Filter * -Property DNSHostname |
-    # Filter out computers that do not have a valid WS-Management connection
-    Where-Object { Test-WSMan -ComputerName $_.DNSHostname -ErrorAction SilentlyContinue } |
+    Where-Object { Test-WSMan $_.DNSHostname -ErrorAction SilentlyContinue } |
     ForEach-Object {
-        # Get the computer name
-        $computerName = $_.DNSHostname
-
-        Invoke-Command -ComputerName $computerName -ScriptBlock {
-        # Retrieve the members of each group using ADSI
+        $computer = $_.DNSHostname
+        Invoke-Command -ComputerName $computer -ScriptBlock {
             foreach ($group in $args) {
-                # Connect to the local SAM database using ADSI
                 $adsi = [ADSI]"WinNT://$env:computerName"
-            
-                # Get the group object
-                $groupObject = $adsi.Children | Where-Object { $_.SchemaClassName -eq 'group' -and $_.Name -eq $group }
-
-                # Get the members of the group
-                if ($groupObject) {
-                    $members = @($groupObject.Invoke("Members")) | ForEach-Object {
-                        # Get the ADsPath property and remove the "WinNT://" prefix
-                        $adsPath = $_.GetType().InvokeMember("ADsPath", 'GetProperty', $null, $_, $null)
-                        $adsPath.Replace("WinNT://", "")
+                $groupObj = $adsi.Children | Where-Object {
+                    $_.SchemaClassName -eq 'group' -and $_.Name -eq $group
+                }
+                $members = if ($groupObj) {
+                    @($groupObj.Invoke("Members")) | ForEach-Object {
+                        $_.GetType().InvokeMember("ADsPath", 'GetProperty', $null, $_, $null) -replace "WinNT://", ""
                     }
-                }
-                else {
-                    # If the group does not exist, set the members to an empty array
-                    $members = @()
-                }
-        
-            # Create a custom object with the computer name, group name, and comma-separated list of group members
-                [PSCustomObject] @{
+                } else { @() }
+
+                [PSCustomObject]@{
                     PSComputerName = $env:computerName
-                    GroupName = $group
-                    Members = $Members -join ","
+                    GroupName      = $group
+                    Members        = $members -join ","
                 }
             }
         } -ArgumentList @($groups)
-    } | Export-Csv -Path C:\temp\t0LGroupMembers.csv -NoTypeInformation -NoClobber -Encoding UTF8
+    } | Export-Csv "ServerLocalGroupMembers.csv" -NoTypeInformation -Encoding UTF8
 ```
+
+Adjust `$root` to match your OU structure. Add more groups to `$groups` if you want to audit Hyper-V Administrators, Event Log Readers, or other local groups.
+
+## What to look for
+
+Review the CSV for anything unexpected:
+
+- **Service accounts in Administrators** — should be removed and replaced with proper delegation or gMSA
+- **Named user accounts** — nobody should have personal admin access to servers
+- **Stale domain groups** — groups that existed for a project that ended two years ago
+- **Missing entries** — servers where the expected admin group is not present
+
+Run this regularly. Local group memberships drift, and there's no built-in way to detect it.

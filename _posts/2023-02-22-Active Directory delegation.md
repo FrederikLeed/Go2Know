@@ -1,350 +1,133 @@
 ---
-title: "Delegating permissions in Active Directory"
+title: "Delegating Permissions in Active Directory"
+excerpt: "Stop using built-in operator groups. Delegate permissions properly with least privilege."
+date: 2023-02-22
+last_modified_at: 2023-02-22
 categories:
   - Active Directory
-author:
- - Frederik Leed
 tags:
-  - Microsoft
+  - PowerShell
   - Security
-  - Powershell
-  - DoTheBasics
-layout: single
+  - Least Privilege
+toc: true
+toc_label: "Contents"
+toc_sticky: true
 ---
 
-Least privilege wins! Delegate permission in every case, never use built-in operator groups.
+Least privilege wins. Every time I look at an AD environment, I find helpdesk accounts in Domain Admins "because they need to reset passwords." Operator groups with members nobody can explain. Permissions granted directly to user accounts instead of groups.
 
-![Delegated administration](/assets/images/groups.png){:width="180px"}
+Stop using built-in operator groups. Delegate the exact permissions needed, to a group, on the specific OU where they're needed — nothing more.
 
-## Delegated administration
+## Why delegation matters
 
-Active Directory delegation is the process of assigning specific administrative tasks to designated users or groups within an organization. This allows for a more efficient and effective management of the Active Directory environment by distributing tasks and responsibilities to those who need them.
+Built-in groups like Account Operators and Server Operators grant far more access than most admins realize. Account Operators can create and modify users and groups anywhere in the domain. Server Operators can log on to domain controllers. These are effectively Tier 0 privileges handed out like candy.
 
-There are several different levels of delegation in Active Directory, each with different permissions and capabilities. Common delegation examples:
+Proper delegation means:
 
-- Control access to specific objects: This level of delegation allows administrators to grant or deny access to specific objects in Active Directory, such as users, groups, and computers.
+- Permissions scoped to a specific OU — not the entire domain
+- Granted to a security group — never to a user account directly
+- Limited to the exact object type (users, groups, computers, OUs)
+- Reviewable — you can report on who has what
 
-- Create, delete, and modify objects: This level of delegation allows administrators to create, delete, and modify objects in Active Directory, such as users, groups, and computers.
+## Report on existing delegations
 
-- Create, delete, and manage organizational units: This level of delegation allows administrators to create, delete, and manage organizational units in Active Directory, which can be used to group and organize objects.
-
-By delegating administrative tasks in Active Directory, organizations can ensure that only the necessary personnel have access to critical functions, while reducing the risk of unauthorized access and security breaches. It can also help to streamline administrative workflows and improve overall efficiency in managing the Active Directory environment.
-
-![Company structure](/assets/images/AD_Company_structure.png){:width="360px"}
-
-## Report on existing delegations ![powershell](/assets/images/powershell.png){:width="30px"}
-
-The following script is designed to analyze the permissions that are set on a particular OU in Active Directory. By focusing on this specific level, the script provides a detailed overview of the permissions that have been granted within that OU. This information can be used to identify unnecessary permissions and clean them up, or to better understand the current delegation of permissions and make improvements as necessary.
-
-{% include codeHeader.html %}
+Before changing anything, audit what's already delegated. The [ADSecurityReporter](https://www.powershellgallery.com/packages/ADSecurityReporter) module makes this straightforward.
 
 ```powershell
-<#
-.SYNOPSIS
-    This script uses the ADSecurityReporter module to scan a specific OU in the Active Directory, exclude certain permission types, and filter the results to exclude certain groups or accounts. The results are then displayed in a grid view.
-.DESCRIPTION
-    This script uses the Get-PscActiveDirectoryACL cmdlet from the ADSecurityReporter module to scan a specific OU in the Active Directory and retrieve the access control lists (ACLs) for each object in the specified OU. The script then applies several filters to exclude certain permission types, such as inherited permissions, and certain groups or accounts, such as Domain Admins and Exchange. Finally, the script displays the filtered results in a grid view for easy analysis.
-.EXAMPLE
-    PS C:\> .\Get-ActiveDirectoryACL.ps1
-    This example scans the default OU for the Active Directory and displays the results in a grid view.
-.NOTES
-    Author: [Author Name]
-    Date: [Date]
-#>
-
-# Import the ADSecurityReporter module
 Import-Module ADSecurityReporter
 
-# Scan a specific OU in the Active Directory and exclude certain permission types
 Get-PscActiveDirectoryACL -ScanDNName "OU=Company,DC=Domain,DC=com" `
--ExcludeInheritedPermission `
--ExcludeNTAUTHORITY `
--ExcludeBuiltIN `
--DontRunBasicSecurityCheck `
--ExcludeCreatorOwner `
--ExcludeEveryOne |
-
-# Filter the results to exclude certain groups or accounts
+    -ExcludeInheritedPermission `
+    -ExcludeNTAUTHORITY `
+    -ExcludeBuiltIN `
+    -ExcludeCreatorOwner `
+    -ExcludeEveryOne |
 Where-Object {
     $_.'Assigned To' -notmatch "s-1-5-32-548|s-1-5-32-554|Domain Admins|exchange|organization"
-    # Uncomment the following line to include only a specific group or account
-    # $_.'Assigned To' -match "sec-ad-department"
-} |
-
-# Display the results in a grid view
-Out-GridView
+} | Out-GridView
 ```
 
-## Create new delegations ![powershell](/assets/images/powershell.png){:width="30px"}
+This shows you every non-inherited, non-default ACE on the OU. Clean up anything that shouldn't be there.
 
-This PowerShell script defines five functions that can be used to grant full delegation rights to a specified group over various Active Directory objects in a specified organizational unit (OU).
+## Create new delegations
 
-- The first function, SetFullUserDelegation, grants full delegation rights over users in the specified OU. It takes two parameters: $ou, which is the distinguished name of the OU in which permissions will be granted, and $group, which is the name of the group to which full delegation rights will be granted. Other functions take the same parameters.
-- The second function, SetFullGroupDelegation, grants full delegation rights over groups in the specified OU.
-- The third function, SetFullComputerDelegation, grants full delegation rights over computers in the specified OU.
-- The fourth function, SetFullOUDelegation, grants full delegation for a given OU for a given group.
-- The fifth function, SetPwdResetDelegation, grants delegation for password reset on a specified OU for a specified group.
+Here are the building blocks for proper delegation. Each function grants a specific permission type on a specific object class within an OU.
 
-These are common delegation functions. Variations can be created where a more detailed permissionset is granted. Like the SetPwdResetDelegation function. It does not grant full acces to users objects, but only enables password reset.
-
-{% include codeHeader.html %}
+The pattern is always the same: get the OU ACL, create an ACE with the right GUIDs, apply it.
 
 ```powershell
-#This function sets the permissions for a specified group to have full delegation rights over users in the specified organizational unit (OU) in Active Directory.
-Function SetFullUserDelegation{
-    Param(
-        $ou,   # distinguished name of the OU in which permissions will be granted
-        $group # name of the group to which full delegation rights will be granted
-    )
-
-    # Get the current ACL for the OU
-    $acl = get-acl ("ad:"+ $ou)
-
-    # Get the SID of the specified group
-    $group = Get-ADgroup $group
-    $sid = new-object System.Security.Principal.SecurityIdentifier $group.SID
-    
-    # Set the object and inherited object GUIDs for the ACE that grants GenericAll rights
-    $objecttypeguid = $AllGuid
-    $inheritedobjecttypeguid = $UserGuid
-
-    # Create an ACE that grants the specified group GenericAll rights on the users in the OU
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "GenericAll"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-
-    # Add the first access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-
-    # Set the object and inherited object GUIDs for the ACE that grants CreateChild and DeleteChild rights
-    $objecttypeguid = $UserGuid
-    $inheritedobjecttypeguid = $AllGuid
-
-    # Create an ACE that grants the specified group CreateChild and DeleteChild rights on users in the OU and its descendants
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "CreateChild, DeleteChild"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "All"
-
-    # Add the second access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the new ACL for the OU
-    Set-ACl -Path "AD:\$ou" -AclObject $acl
-}
-#This function sets the permissions for a specified group to have full delegation rights over groups in the specified organizational unit (OU) in Active Directory.
-Function SetFullGroupDelegation{
-    Param(
-        $ou,   # distinguished name of the OU in which permissions will be granted
-        $group # name of the group to which full delegation rights will be granted
-    )
-
-    # Get the current ACL for the OU       
-    $acl = get-acl ("ad:"+ $ou)
-
-    # Get the SID of the specified group
-    $group = Get-ADgroup $group
-    $sid = new-object System.Security.Principal.SecurityIdentifier $group.SID
-
-    # Set the object and inherited object GUIDs for the ACE that grants GenericAll rights        
-    $objecttypeguid = $AllGuid
-    $inheritedobjecttypeguid = $GroupGuid
-
-    # Create an ACE that grants the specified group GenericAll rights on the groups in the OU
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "GenericAll"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-
-    # Add the first access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the object and inherited object GUIDs for the ACE that grants CreateChild and DeleteChild rights
-    $objecttypeguid = $GroupGuid
-    $inheritedobjecttypeguid = $AllGuid
-
-    # Create an ACE that grants the specified group CreateChild and DeleteChild rights on groups in the OU and its descendants
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "CreateChild, DeleteChild"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "All"
-
-    # Add the second access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the new ACL for the OU
-    Set-ACl -Path "AD:\$ou" -AclObject $acl
-}
-#This function sets the permissions for a specified group to have full delegation rights over the specified organizational unit (OU) in Active Directory.
-Function SetFullComputerDelegation{
-    Param(
-        $ou,    # distinguished name of the OU in which permissions will be granted
-        $group  # name of the group to which full delegation rights will be granted
-    )
-
-    # Get the current ACL for the OU
-    $acl = get-acl ("ad:"+ $ou)
-
-    # Get the SID of the specified group
-    $group = Get-ADgroup $group
-    $sid = new-object System.Security.Principal.SecurityIdentifier $group.SID
-
-    # Set the object and inherited object GUIDs for the ACE that grants GenericAll rights
-    $objecttypeguid = $AllGuid
-    $inheritedobjecttypeguid = $ComputerGuid
-
-    # Create an ACE that grants the specified group GenericAll rights on the OU and its descendants
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "GenericAll"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-
-    # Add the first access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the object and inherited object GUIDs for the ACE that grants CreateChild and DeleteChild rights
-    $objecttypeguid = $ComputerGuid
-    $inheritedobjecttypeguid = $AllGuid
-
-    # Create an ACE that grants the specified group CreateChild and DeleteChild rights on the OU and its descendants
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "CreateChild, DeleteChild"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "All"
-    
-    # Add the second access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the new ACL for the OU
-    Set-ACl -Path "AD:\$ou" -AclObject $acl
-}
-# Function to set full delegation for a given OU for a given group
-Function SetFullOUDelegation{
-    Param(
-        $ou,    # Organizational Unit to set delegation on
-        $group  # Group to set delegation for
-    )
-
-    # Get the current ACL for the specified OU
-    $acl = get-acl ("ad:"+ $ou)
-
-    # Get the group object
-    $group = Get-ADgroup $group
-
-    # Get the SID for the group
-    $sid = new-object System.Security.Principal.SecurityIdentifier $group.SID
-
-    # Set the object type and inheritance type for the first access rule
-    $objecttypeguid = $AllGuid
-    $inheritedobjecttypeguid = $OrganizationalUnitGuid
-
-    # Set the identity, access rights, access control type, and inheritance type for the first access rule
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "GenericAll"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-
-    # Add the first access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the object type and inheritance type for the second access rule
-    $objecttypeguid = $OrganizationalUnitGuid
-    $inheritedobjecttypeguid = $OrganizationalUnitGuid
-
-    # Set the identity, access rights, access control type, and inheritance type for the second access rule
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "CreateChild, DeleteChild"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "All"
-
-    # Add the second access rule to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the new ACL for the specified OU
-    Set-ACl -Path "AD:\$ou" -AclObject $acl
-}
-# This function sets delegation for password reset on a specified OU for a specified group
-Function SetPwdResetDelegation{
-    Param(
-        $OU,    # The distinguished name of the OU
-        $GroupName   # The name of the group for which delegation is to be set
-    )
-
-    # Get the current access control list (ACL) for the OU
-    $acl = get-acl ("ad:"+ $OU)
-
-    # Get the security identifier (SID) of the group
-    $group = Get-ADgroup $GroupName
-    $sid = new-object System.Security.Principal.SecurityIdentifier $group.SID
-
-    # Define the values for the first access rule (pwdLastSet)
-    $inheritedobjecttypeguid = $UserGuid
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "ReadProperty, WriteProperty"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-    $objecttypeguid = $pwdLastSetGuid
-
-    # Create the first access rule and add it to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Define the values for the second access rule (LockoutTime)
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "ReadProperty, WriteProperty"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-    $objecttypeguid = $LockoutTimeGuid
-
-    # Create the second access rule and add it to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Define the values for the third access rule (PasswordReset)
-    $identity = [System.Security.Principal.IdentityReference] $SID
-    $adRights = [System.DirectoryServices.ActiveDirectoryRights] "ExtendedRight"
-    $type = [System.Security.AccessControl.AccessControlType] "Allow"
-    $inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance] "Descendents"
-    $objecttypeguid = $PasswordResetGuid
-
-    # Create the third access rule and add it to the ACL
-    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $identity,$adRights,$type,$objecttypeguid,$inheritanceType,$inheritedobjecttypeguid))
-
-    # Set the updated ACL on the OU
-    Set-ACL -Path "AD:\$ou" -AclObject $acl
-}
-
-#Dependencies
 Import-Module ActiveDirectory
-Import-Module admpwd.ps
 
-#Guid references
-    #ObjectGUIDs
-    $UserGuid                     = [GUID]::Parse('bf967aba-0de6-11d0-a285-00aa003049e2') #http://www.selfadsi.org/deep-inside/ad-security-descriptors.htm
-    $GroupGuid                    = [GUID]::Parse('bf967a9c-0de6-11d0-a285-00aa003049e2') #http://www.selfadsi.org/deep-inside/ad-security-descriptors.htm
-    $ComputerGuid                 = [GUID]::Parse('bf967a86-0de6-11d0-a285-00aa003049e2') #http://www.selfadsi.org/deep-inside/ad-security-descriptors.htm
-    $OrganizationalUnitGuid       = [GUID]::Parse('bf967aa5-0de6-11d0-a285-00aa003049e2') #http://www.selfadsi.org/deep-inside/ad-security-descriptors.htm
-    $ContactGuid                  = [GUID]::Parse('5cb41ed0-0e4c-11d0-a286-00aa003049e2') #http://www.selfadsi.org/deep-inside/ad-security-descriptors.htm
-    
-    #All
-    $AllGuid                      = [GUID]::Parse('00000000-0000-0000-0000-000000000000')
-    
-    #User
-    $PasswordResetGuid            = [GUID]::Parse('00299570-246d-11d0-a768-00aa006e0529') #https://learn.microsoft.com/en-us/windows/win32/adschema/r-user-force-change-password
-    $pwdLastSetGuid               = [GUID]::Parse('bf967a0a-0de6-11d0-a285-00aa003049e2') #https://learn.microsoft.com/en-us/windows/win32/adschema/a-pwdlastset
-    $LockoutTimeGuid              = [GUID]::Parse('28630ebf-41d5-11d1-a9c1-0000f80367c1') #https://learn.microsoft.com/en-us/windows/win32/adschema/a-lockouttime
-    
-    #Set permission Company
-    $ou = "OU=Department,OU=Company,DC=domain,DC=com"
-    
-    #Set group delegation
-        SetFullGroupDelegation -ou $ou -group "SEC-AD-Department-GroupAdmin"
-    #Set user delegation
-        SetFullUserDelegation -ou $ou -group "SEC-AD-Department-UserAdmin"
-    #Set computer delegation
-        SetFullComputerDelegation -ou $ou -group "SEC-AD-Department-ComputerAdmin"
-    #Set OU delegation
-        SetFullOUDelegation -ou $ou -group "SEC-AD-Department-OUAdmin"
-    #Set PwdReset delegation
-        SetPwdResetDelegation -ou $ou -group "SEC-AD-Department-PwdReset"
+# Object class GUIDs
+$UserGuid     = [GUID]'bf967aba-0de6-11d0-a285-00aa003049e2'
+$GroupGuid    = [GUID]'bf967a9c-0de6-11d0-a285-00aa003049e2'
+$ComputerGuid = [GUID]'bf967a86-0de6-11d0-a285-00aa003049e2'
+$OUGuid       = [GUID]'bf967aa5-0de6-11d0-a285-00aa003049e2'
+$AllGuid      = [GUID]'00000000-0000-0000-0000-000000000000'
+
+# Extended rights GUIDs
+$PasswordResetGuid = [GUID]'00299570-246d-11d0-a768-00aa006e0529'
+$pwdLastSetGuid    = [GUID]'bf967a0a-0de6-11d0-a285-00aa003049e2'
+$LockoutTimeGuid   = [GUID]'28630ebf-41d5-11d1-a9c1-0000f80367c1'
+
+function Set-OUDelegation {
+    param($OU, $Group, $ObjectGuid, $Rights)
+    $acl = Get-Acl "AD:\$OU"
+    $sid = (Get-ADGroup $Group).SID
+
+    # Full control on objects of the specified class
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule `
+        $sid, $Rights, 'Allow', $AllGuid, 'Descendents', $ObjectGuid))
+
+    # Create/delete objects of the specified class
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule `
+        $sid, 'CreateChild,DeleteChild', 'Allow', $ObjectGuid, 'All', $AllGuid))
+
+    Set-Acl "AD:\$OU" $acl
+}
 ```
+
+### Usage
+
+```powershell
+$ou = "OU=Department,OU=Company,DC=domain,DC=com"
+
+# Full user administration on the OU
+Set-OUDelegation -OU $ou -Group "SEC-AD-Dept-UserAdmin" -ObjectGuid $UserGuid -Rights "GenericAll"
+
+# Full group administration
+Set-OUDelegation -OU $ou -Group "SEC-AD-Dept-GroupAdmin" -ObjectGuid $GroupGuid -Rights "GenericAll"
+
+# Full computer administration
+Set-OUDelegation -OU $ou -Group "SEC-AD-Dept-ComputerAdmin" -ObjectGuid $ComputerGuid -Rights "GenericAll"
+
+# Full OU administration
+Set-OUDelegation -OU $ou -Group "SEC-AD-Dept-OUAdmin" -ObjectGuid $OUGuid -Rights "GenericAll"
+```
+
+### Password reset only
+
+Not every delegation needs full control. Here's a minimal password-reset-only delegation — reset password, unlock account, and set pwdLastSet:
+
+```powershell
+function Set-PwdResetDelegation {
+    param($OU, $Group)
+    $acl = Get-Acl "AD:\$OU"
+    $sid = (Get-ADGroup $Group).SID
+
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule `
+        $sid, 'ExtendedRight', 'Allow', $PasswordResetGuid, 'Descendents', $UserGuid))
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule `
+        $sid, 'ReadProperty,WriteProperty', 'Allow', $pwdLastSetGuid, 'Descendents', $UserGuid))
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule `
+        $sid, 'ReadProperty,WriteProperty', 'Allow', $LockoutTimeGuid, 'Descendents', $UserGuid))
+
+    Set-Acl "AD:\$OU" $acl
+}
+
+Set-PwdResetDelegation -OU $ou -Group "SEC-AD-Dept-PwdReset"
+```
+
+## Conclusion
+
+Every permission you delegate is one less reason to hand out Domain Admin. Start with password reset — it's the most common request and the easiest to scope. Then move on to user, group, and computer admin. The goal is empty operator groups and no helpdesk accounts in Domain Admins.

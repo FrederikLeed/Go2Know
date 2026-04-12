@@ -1,88 +1,74 @@
 ---
-title: "How to delegate domain join permissions - Using least privilege and best practice"
+title: "Delegating Domain Join Permissions with Least Privilege"
+excerpt: "Stop using Domain Admins to join machines. Delegate the exact permissions needed — nothing more."
+date: 2023-04-05
+last_modified_at: 2023-04-05
 categories:
-  - Windows
-author:
- - Frederik Leed
-tags:
-  - Microsoft
   - Security
-  - Powershell
-  - ActiveDirectory
-layout: single
+tags:
+  - Active Directory
+  - PowerShell
+  - Least Privilege
+toc: true
+toc_label: "Contents"
+toc_sticky: true
 ---
 
-De-privileging the account(s) used for joining computers to the domain.
+The account used to join computers to the domain is one of the most over-privileged accounts in most AD environments. Way too often it's a member of Domain Admins or Administrators — and its credentials are exposed during OS deployment by design.
 
-## What is the point?
+An attacker on the network during an OSD task sequence can grab those credentials. If the account is Domain Admin, that's game over. If it's a properly delegated service account, the blast radius is "they can join computers to one OU."
 
-Why do we need to use least-privilege permissions? In very simple words: **Cleaning up your permissions will help you be more resilient to attacks**
+## Best practices
 
-Way too often we see accounts used for domain join activities being member of higly privileged groups in Active Directory, like "Domain Admins" or "Administrators". These accounts are normally easy for an attacker, with access to corporate network, to compromise, since the account credentials are exposed during the OSDeployment process. (This is by design).
+- **Single-use service accounts** — one per deployment scenario
+- **Unique passwords** — never reuse across accounts
+- **Separate accounts for servers and workstations** — different tiers, different blast radius
+- **Delegate to a group** — add the service account to a security group, delegate permissions to the group
+- **Set MachineAccountQuota to 0** — prevents regular users from joining machines to the domain
 
-One of the skilled consultants at [MicrosoftIR](https://aka.ms/MicrosoftIR) has created a great article about de-priviliging and why it is so important. You shoud give it a [read](https://techcommunity.microsoft.com/t5/security-compliance-and-identity/why-de-privileging/ba-p/3779519).
+For the full rationale, read the [de-privileging article from Microsoft IR](https://techcommunity.microsoft.com/t5/security-compliance-and-identity/why-de-privileging/ba-p/3779519).
 
-## Tips when creating new delegations for domian join
+## The delegation
 
- - Single use service accounts!
- - Single use passwords!
- - Use seperate accounts for servers and for workstations
- - If your Active Directory is tiered, use separate accounts for each tier
- - Delegate permissions to groups and not users directly. This makes reviewing AD permissions easier.
+A domain join account needs exactly five permissions on the target OU:
 
-## Isolated delegation function ![powershell](/assets/images/powershell.png){:width="30px"}
+1. Create/delete computer objects
+2. Reset password
+3. Read/write account restrictions
+4. Write DNS host name
+5. Write service principal name
 
-Here is quick sample of the core functionality of delegating domain join permissions.
-
- - For a more extensive solution, keep reading!
-
-{% include codeHeader.html %}
+Nothing else.
 
 ```powershell
-    $rootdse = Get-ADRootDSE
-    $extendedrightsmap = @{} 
-    Get-ADObject -SearchBase ($rootdse.ConfigurationNamingContext) -LDAPFilter "(&(objectclass=controlAccessRight)(rightsguid=*))" -Properties displayName,rightsGuid | ForEach-Object {$extendedrightsmap[$_.displayName]=[System.GUID]$_.rightsGuid}
-    $spnguid = [System.Guid](Get-ADObject -Identity ("CN=Service-Principal-Name," + $rootdse.SchemaNamingContext) -Properties schemaIDGUID).schemaIDGUID
-    $computerguid = [System.Guid](Get-ADObject -Identity ("CN=Computer," + $rootdse.SchemaNamingContext) -Properties schemaIDGUID).schemaIDGUID
+$rootdse = Get-ADRootDSE
+$extendedrightsmap = @{}
+Get-ADObject -SearchBase $rootdse.ConfigurationNamingContext `
+    -LDAPFilter "(&(objectclass=controlAccessRight)(rightsguid=*))" `
+    -Properties displayName, rightsGuid |
+    ForEach-Object { $extendedrightsmap[$_.displayName] = [System.GUID]$_.rightsGuid }
 
-function Set-DomainJoinPermissions($groupname, $ou){
-    # Create Computer Accounts
-    # Delete Computer Accounts
-    # Reset Password
-    # Read and write Account Restrictions
-    # Validated write to DNS host name 
-    # Validated write to service principal name
-    $groupsid = new-object System.Security.Principal.SecurityIdentifier (Get-ADGroup $groupname).SID
+$spnguid = [System.Guid](Get-ADObject "CN=Service-Principal-Name,$($rootdse.SchemaNamingContext)" -Properties schemaIDGUID).schemaIDGUID
+$computerguid = [System.Guid](Get-ADObject "CN=Computer,$($rootdse.SchemaNamingContext)" -Properties schemaIDGUID).schemaIDGUID
 
-    $ace1 = new-object System.DirectoryServices.ActiveDirectoryAccessRule $groupsid,"CreateChild,DeleteChild","Allow",$computerguid
-    $ace2 = new-object System.DirectoryServices.ActiveDirectoryAccessRule $groupsid,"ExtendedRight","Allow",$extendedrightsmap["Reset Password"],"Descendents",$computerguid
-    $ace3 = new-object System.DirectoryServices.ActiveDirectoryAccessRule $groupsid,"readproperty,writeproperty","Allow",$extendedrightsmap["Account Restrictions"],"Descendents",$computerguid
-    $ace4 = new-object System.DirectoryServices.ActiveDirectoryAccessRule $groupsid,"writeproperty","Allow",$extendedrightsmap["DNS Host Name Attributes"],"Descendents",$computerguid
-    $ace5 = new-object System.DirectoryServices.ActiveDirectoryAccessRule $groupsid,"writeproperty","Allow",$spnguid,"Descendents",$computerguid
-    $acl = Get-ACL -Path ("AD:\"+$ou)
+function Set-DomainJoinPermissions($GroupName, $OU) {
+    $sid = (Get-ADGroup $GroupName).SID
+    $acl = Get-Acl "AD:\$OU"
 
-    $acl.AddAccessRule($ace1)
-    $acl.AddAccessRule($ace2)
-    $acl.AddAccessRule($ace3)
-    $acl.AddAccessRule($ace4)
-    $acl.AddAccessRule($ace5)
-    
-    Set-ACL -ACLObject $acl -Path ("AD:\"+$ou)
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $sid, "CreateChild,DeleteChild", "Allow", $computerguid))
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $sid, "ExtendedRight", "Allow", $extendedrightsmap["Reset Password"], "Descendents", $computerguid))
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $sid, "ReadProperty,WriteProperty", "Allow", $extendedrightsmap["Account Restrictions"], "Descendents", $computerguid))
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $sid, "WriteProperty", "Allow", $extendedrightsmap["DNS Host Name Attributes"], "Descendents", $computerguid))
+    $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule $sid, "WriteProperty", "Allow", $spnguid, "Descendents", $computerguid))
+
+    Set-Acl "AD:\$OU" $acl
 }
 
-Set-DomainJoinPermissions -groupname "DomainJoinGroup" -ou "OU=Workstations,DC=example,DC=com"
+Set-DomainJoinPermissions -GroupName "SEC-DomainJoin-Workstations" -OU "OU=Workstations,DC=domain,DC=com"
 ```
 
-The above is an isolated simple function to do just one thing. To provide a more comprehensive solution, I have created a script and made it available in my Github repo.
+For a more complete solution that also creates the service account, security group, and sets MachineAccountQuota — see [this script](https://github.com/FrederikLeed/scripts-n-queries/blob/55bcb1699f9cbe62e8c38f5442c417eb5e2cdea2/ActiveDirectory/Delegate_domain_join.ps1) on GitHub.
 
-The script performs the following tasks:
+## Conclusion
 
-1. Creates a new service account with a specified name and path, and sets the password as provided by the user. (If an account with the specified name already exists, it will be used)
-2. Creates a new security group with a specified name and path, and adds a description indicating the group's purpose. (If a group with the specified name already exists, it will be used)
-3. Adds the service account to the security group.
-4. Delegates the necessary permissions on the specified Organizational Unit (OU) to the security group, allowing its members to join machines to the domain.
-5. Sets the ms-ds-MachineAccountQuota to 0 to prevent other users from joining machines to the domain.
-
-The script includes error handling and logging to ensure smooth execution and provide useful information on the process.
-
-Download [here](https://github.com/FrederikLeed/scripts-n-queries/blob/55bcb1699f9cbe62e8c38f5442c417eb5e2cdea2/ActiveDirectory/Delegate_domain_join.ps1)
+Five ACE rules. That's all a domain join account needs. Everything beyond that is unnecessary risk. De-privilege your deployment accounts — it's one of the easiest wins in AD security.

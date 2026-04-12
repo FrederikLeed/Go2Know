@@ -1,99 +1,78 @@
 ---
-title: "Using PowerShell to Get Members of Privileged Groups Across All Domains"
+title: "Auditing Privileged Group Members Across All Domains"
+excerpt: "A PowerShell script that pulls members of all privileged groups across every domain in your forest."
+date: 2024-05-13
+last_modified_at: 2024-05-13
 categories:
   - Administration
-author:
-  - Frederik Leed
 tags:
   - PowerShell
   - Active Directory
   - Security
-layout: single
+toc: true
+toc_label: "Contents"
+toc_sticky: true
 ---
 
-In this blog post, we will explore a PowerShell script designed to retrieve members of specific privileged and exclusive groups across all domains in an Active Directory (AD) forest. This script can be incredibly useful for system administrators and security professionals who need to audit group memberships and ensure that only authorized users have access to sensitive groups.
+"Who is in Domain Admins?" Easy to answer. "Who is in Domain Admins, Enterprise Admins, Schema Admins, Account Operators, Backup Operators, Server Operators, and every other privileged group — across all five domains in the forest?" That's a different question.
 
-A post about obtaining details of users in critical AD groups using a PowerShell script.
+Most environments have multiple domains, and privileged groups that nobody checks. Enterprise Admins and Schema Admins only exist in the forest root. Operator groups exist in every domain but rarely get audited. This script covers all of them.
 
-## Why Use This Script?
+## The script
 
-Tracking members of privileged groups in an AD environment is crucial for maintaining security and compliance. Here are a few reasons why this script is beneficial:
+It iterates through every domain in the forest, queries all built-in privileged groups, and exports the members to CSV with their group memberships.
 
-1. **Security Audits**: Regularly auditing group memberships helps ensure that only authorized users have elevated privileges.
-2. **Compliance**: Many regulations require organizations to keep track of who has access to critical systems and data.
-3. **Accountability**: Knowing who belongs to privileged groups helps maintain accountability within the organization.
-4. **Incident Response**: In the event of a security incident, understanding group memberships can aid in the investigation.
-
-## Script Overview
-
-The provided PowerShell script performs the following tasks:
-
-- Defines a list of privileged and exclusive groups.
-- Retrieves the current AD forest and iterates through each domain.
-- Queries the specified groups for their members, focusing on user objects.
-- Collects and stores details of each user, including their group memberships.
-- Exports the results to a CSV file for further analysis.
-
-Here is the full script:
-
-{% include codeHeader.html %}
+Regular domain user permissions are sufficient — no admin rights needed.
 
 ```powershell
-# Define privileged and exclusive groups
+# Groups that exist in every domain
 $AdminGroups = @(
     "Account Operators", "Administrators", "Backup Operators", "Cert Publishers",
-    "DNSAdmins", "Domain Admins", "Key Admins", "Print Operators", "Replicator",
-    "Server Operators", "Network Configuration Operators",
-    "Domain Controllers", "Group Policy Creator Owners",
-    "Read-only Domain Controllers"
+    "DNSAdmins", "Domain Admins", "Domain Controllers", "Group Policy Creator Owners",
+    "Key Admins", "Print Operators", "Read-only Domain Controllers", "Replicator",
+    "Server Operators", "Network Configuration Operators"
 )
+
+# Groups that only exist in the forest root domain
 $ExclusiveGroups = @(
-    "Enterprise Admins", "Enterprise Key Admins", "Schema Admins", "Exchange Servers","Incoming Forest Trust Builders"
+    "Enterprise Admins", "Enterprise Key Admins", "Schema Admins",
+    "Incoming Forest Trust Builders"
 )
 
-# Initialize result hashtable
 $MemberDetails = @{}
-
-# Get the current forest and process each domain
 $forest = [System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest()
+
 foreach ($domain in $forest.Domains) {
-    Write-Host "Processing domain: $($domain.Name)"
+    Write-Host "Processing: $($domain.Name)"
+    $groupsToQuery = if ($domain.Name -eq $forest.RootDomain.Name) {
+        $AdminGroups + $ExclusiveGroups
+    } else { $AdminGroups }
 
-    # Determine groups to query based on domain
-    $groupsToQuery = $AdminGroups
-    if ($domain.Name -eq $forest.RootDomain.Name) {
-        $groupsToQuery += $ExclusiveGroups
-    }
-
-    # Get the domain NetBIOS name
-    $domainNetBIOS = (Get-ADDomain -Identity $domain.Name).NetBIOSName
+    $netbios = (Get-ADDomain $domain.Name).NetBIOSName
 
     foreach ($group in $groupsToQuery) {
         try {
-            # Get the group object
             $adGroup = Get-ADGroup -Filter "Name -eq '$group'" -Server $domain.Name -ErrorAction Stop
-            # Get members of the group, filter for users only
-            $members = Get-ADGroupMember -Identity $adGroup -Recursive -Server $domain.Name -ErrorAction Stop | Where-Object {$_.objectClass -eq "User"}
+            $members = Get-ADGroupMember $adGroup -Recursive -Server $domain.Name -ErrorAction Stop |
+                Where-Object objectClass -eq "User"
 
             foreach ($member in $members) {
-                $userKey = $member.DistinguishedName
-                if (-not $MemberDetails[$userKey]) {
-                    # Initialize user details and group list
-                    $MemberDetails[$userKey] = @{
+                $key = $member.DistinguishedName
+                if (-not $MemberDetails[$key]) {
+                    $MemberDetails[$key] = @{
                         samAccountName = $member.samAccountName
                         displayName    = $member.Name
-                        groups         = New-Object System.Collections.ArrayList
+                        groups         = [System.Collections.ArrayList]::new()
                     }
                 }
-                [void]$MemberDetails[$userKey].groups.Add("$domainNetBIOS\$group")
+                [void]$MemberDetails[$key].groups.Add("$netbios\$group")
             }
         } catch {
-            Write-Warning "Could not process group '$group' in domain '$($domain.Name)': $_"
+            Write-Warning "Could not process '$group' in '$($domain.Name)': $_"
         }
     }
 }
 
-# Output the results
 $MemberDetails.Keys | ForEach-Object {
     $user = $MemberDetails[$_]
     [PSCustomObject]@{
@@ -102,18 +81,18 @@ $MemberDetails.Keys | ForEach-Object {
         DisplayName       = $user.displayName
         Groups            = $user.groups -join ', '
     }
-} | Export-Csv -Path "PrivilegedGroupMembers.csv" -NoTypeInformation
-#} | Out-GridView
-
-Write-Host "Output has been saved to 'PrivilegedGroupMembers.csv'"
+} | Export-Csv "PrivilegedGroupMembers.csv" -NoTypeInformation
 ```
 
-## How to Use the Script
+## What to look for
 
-1. **Prerequisites: Ensure you have the necessary permissions to query AD groups and members. You may need to run the script with elevated privileges. (Regular "Domain User" membership should be enough)
-2. **Run the Script: Execute the script in a PowerShell environment on a machine that has access to your AD forest.
-3. **Review the Output: The script will generate a CSV file named PrivilegedGroupMembers.csv in the current directory. This file contains details of the users and their group memberships.
+The CSV will show you every user and which privileged groups they're in. Look for:
+
+- **Accounts in multiple privileged groups** — usually a sign of over-provisioning
+- **Service accounts in operator groups** — should be removed and replaced with proper delegation
+- **Empty groups that should be empty** — Schema Admins, Enterprise Admins (only needed temporarily)
+- **Groups that shouldn't have members at all** — Backup Operators and Print Operators should be empty on most environments
 
 ## Conclusion
 
-By using this PowerShell script, administrators can efficiently gather information about members of critical AD groups, enhancing their ability to monitor and secure their environment. Regular audits with this script can help maintain a secure and well-managed Active Directory infrastructure.
+Run this as part of your regular access reviews. Privileged group memberships creep — people get added during projects and never removed. A CSV export once a quarter takes five minutes and keeps you honest.
