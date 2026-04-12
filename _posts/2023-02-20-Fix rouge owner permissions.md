@@ -22,15 +22,15 @@ Object ownership in AD is that dangerous. The owner has implicit `WRITE_DAC`, wh
 
 ## The attack chain
 
-BloodHound maps this as an `Owns` edge, and the exploitation is straightforward:
+The exploitation is straightforward:
 
-1. **Owner modifies the DACL** — grants themselves `GenericAll` on the object
+1. **Owner modifies the DACL** — grants themselves full control on the object
 2. **Resets the password** — or writes any attribute they want
 3. **Authenticates as that account** — game over
 
-This works on any object type. Own a domain controller computer object? Grant yourself `DCSync` rights, dump every hash in the domain. Own the domain head itself? You control the entire directory.
+This works on any object type. Own a domain controller computer object? Grant yourself replication rights, dump every hash in the domain. Own the domain head itself? You control the entire directory.
 
-This maps to [MITRE T1222.001](https://attack.mitre.org/techniques/T1222/001/) and both BloodHound and AD_Miner flag these paths automatically. The chain is `WriteOwner → WriteDacl → GenericAll` — and it's not theoretical. We see it in production environments constantly.
+This is not theoretical. We see it in production environments constantly.
 
 ## What to check
 
@@ -45,7 +45,7 @@ The default owner is whoever created the object. That's fine for regular user ac
 | Privileged users | Members of the groups above |
 | Domain object | The domain head itself |
 
-The expected owner for all of these is `Domain Admins` or `NT AUTHORITY\SYSTEM`. Anything else is a finding worth investigating.
+The expected owner for all of these is `Domain Admins` or `NT AUTHORITY\SYSTEM`. Anything else should be investigated.
 
 ## Detect rogue ownership
 
@@ -159,4 +159,4 @@ schtasks.exe /change /RU "DOMAIN\gMSA_FixOwners$" /TN "\Maintenance\FixOwnerPerm
 
 ## Conclusion
 
-Rogue object ownership is one of those things that's easy to overlook and trivial to exploit. Three steps from a forgotten `Owns` edge to Domain Admin. Detect it, fix it, schedule it — and stop worrying about it.
+Rogue object ownership is one of those things that's easy to overlook and trivial to exploit. Three steps from a forgotten owner permission to Domain Admin. Detect it, fix it, schedule it — and stop worrying about it.
