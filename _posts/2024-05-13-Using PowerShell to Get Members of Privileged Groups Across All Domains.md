@@ -8,7 +8,7 @@ tags:
   - PowerShell
   - Active Directory
   - Security
-layout: post
+layout: single
 ---
 
 In this blog post, we will explore a PowerShell script designed to retrieve members of specific privileged and exclusive groups across all domains in an Active Directory (AD) forest. This script can be incredibly useful for system administrators and security professionals who need to audit group memberships and ensure that only authorized users have access to sensitive groups.

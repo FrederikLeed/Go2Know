@@ -9,7 +9,7 @@ tags:
   - Security
   - Powershell
   - ActiveDirectory
-layout: post  
+layout: single
 ---
 
 De-privileging the account(s) used for joining computers to the domain.

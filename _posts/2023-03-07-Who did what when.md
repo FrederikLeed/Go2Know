@@ -8,7 +8,7 @@ tags:
   - Microsoft
   - Security
   - KQL
-layout: post  
+layout: single
 ---
 
 In this blog post, we'll discuss how to track changes in Active Directory (AD) with multiple examples. This information can be crucial for identifying security incidents, troubleshooting issues, and meeting compliance requirements.

@@ -8,7 +8,7 @@ tags:
   - Microsoft
   - Security
   - Powershell
-layout: post  
+layout: single
 ---
 
 Member server inventory - local groups

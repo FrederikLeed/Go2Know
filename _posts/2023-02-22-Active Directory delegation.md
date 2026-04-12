@@ -9,7 +9,7 @@ tags:
   - Security
   - Powershell
   - DoTheBasics
-layout: post
+layout: single
 ---
 
 Least privilege wins! Delegate permission in every case, never use built-in operator groups.
