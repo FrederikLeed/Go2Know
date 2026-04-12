@@ -1,6 +1,6 @@
 ---
-title: "My First Month with Claude Code — An AD Security Consultant's Perspective"
-excerpt: "How I went from ChatGPT to a self-hosted AI agent workflow, what I've built with it, and why the security implications keep me up at night."
+title: "Building an Isolated AI Agent Architecture with Claude Code"
+excerpt: "How I built a self-hosted, per-project Docker environment for Claude Code — and why isolation, memory, and multi-device access matter."
 date: 2026-04-12
 last_modified_at: 2026-04-12
 categories:
@@ -16,95 +16,139 @@ toc_sticky: true
 published: false
 ---
 
-A customer called me about a dead domain controller. It had been offline for 62 hours after a Patch Tuesday reboot went sideways. 35 minutes later the DC was back online, I had a full incident report with root cause analysis, timeline, remediation steps, and follow-up actions — and I hadn't written a single line of it myself.
+I've been using AI coding agents for a few months now — ChatGPT Pro, GitHub Copilot, and eventually Claude Code. They're all useful in different ways, but they all share the same problem: they run on your machine with your permissions, they forget everything between sessions, and you can't manage multiple agents doing different work.
 
-That's what working with an AI agent looks like in practice. This post is about how I got there, what I've built around it, and the security concerns that come with giving an AI access to real infrastructure work.
+I'm a security consultant. I work on multiple customer projects simultaneously, each with sensitive data that shouldn't bleed into the other. I needed an architecture that treats AI agents the way I treat admin workstations — isolated, segmented, and auditable.
 
-## The journey to Claude Code
+So I built one.
 
-I started with **ChatGPT Pro** about six months ago. Used it for sparring on ideas and having it write PowerShell scripts. It was useful but disconnected — I'd copy-paste code back and forth, explain context manually, and lose the thread between sessions.
+## The problems
 
-Then I moved to **GitHub Copilot Pro** in VS Code. Better — it could see my code, suggest completions, and interact with files directly. But I felt limited by having to approve every single action. I couldn't tell it "go figure this out" and walk away.
+These are the problems I ran into with every AI agent setup I tried, and what my architecture solves for each:
 
-I looked into **OpenClaw** (now NemoClaw) — the open-source agent framework from NVIDIA. The idea of a self-hosted, restricted AI agent was exactly what I wanted. But I didn't have the hardware to run local models at a useful quality level. That's still on my roadmap.
+### 1. No isolation between projects
 
-Then I found **Claude Code**. It clicked because I could treat it the way I wanted to treat OpenClaw — as an autonomous agent that I could restrict, isolate, and point at real work. Not a chatbot I paste things into, but an agent that reads my repos, runs scripts, analyzes output, and produces deliverables.
+When an AI agent runs on your workstation, it can see everything. Every repo, every file, every credential. If you're working on Customer A's security assessment and switch to Customer B, the agent carries context — and access — across both.
 
-## How I actually use it
+**Solution:** Each project gets its own Docker container. The agent only sees its own workspace. Customer A's data is physically separated from Customer B's.
 
-Most of my work starts with Claude now. The typical flow:
+### 2. No memory across sessions
 
-1. **Sparring** — I start in Claude chat to think through a problem. Architecture decisions, script design, approach.
-2. **Building** — Claude Code writes the scripts, creates the files, commits to git. I review and steer.
-3. **Analysis** — Script output goes back to Claude. It processes the data, finds patterns, correlates across sources.
-4. **Reporting** — Claude writes the report. Not a template fill — an actual analysis with evidence, recommendations, and follow-up actions.
+Every time you start a new chat, you start from zero. You re-explain your project, your conventions, your preferences. The agent rediscovers the codebase every time.
 
-The key difference from Copilot: Claude understands the full context of what I'm working on. When I ask a question, it knows which repo I'm in, what the project does, what I've already tried. It can decide that more questions need answering before it gives me a response.
+This is a well-known gap — even [OpenHands](https://github.com/OpenHands/OpenHands) (70k+ stars, the largest open-source AI coding agent) has this as a documented weakness. Each conversation gets a fresh container with no persistent state.
 
-### The dead DC
+**Solution:** Persistent memory volumes that survive container restarts. Claude Code's memory directory (`/home/claude/.claude`) is bind-mounted from the host. Project knowledge, user preferences, and working context carry over between sessions automatically.
 
-A customer had a domain controller that went offline after patching. NTDS, DNS, KDC, DFSR — everything down. The other two DCs in the domain kept things running, but a third of their DC capacity was gone.
+### 3. No blast radius control
 
-I asked Claude to write a triage script. It produced an 11-section diagnostic that ran remotely via WinRM — service state, NTDS registry, event logs from five sources, DCDiag, repadmin, database integrity, SYSVOL, FSMO roles, port connectivity to other DCs, recent patches, and disk space. One script, one execution, all the data collected and pulled back to my management server.
+An AI agent that can write and execute code can also delete files, install packages, and modify system configuration. If it goes wrong, the blast radius is your entire workstation.
 
-Claude analyzed the output and identified the root cause within seconds: the server had booted into Safe Mode. The `bcdedit` safeboot flag was set, NTDS couldn't start, and everything that depends on it cascaded down. One command to remove the flag, one reboot, and the DC was back.
+**Solution:** Container isolation. If an agent does something destructive, it only affects its own container. Your host, your other projects, and your other agents are untouched.
 
-Then Claude wrote the incident report — executive summary, service state comparison, full timeline with event IDs, root cause analysis, step-by-step remediation, risk assessment, and follow-up actions. Seven sections, fully detailed, with references to specific event IDs and KB numbers.
+### 4. No file exchange with the agent
 
-35 minutes from "the DC is down" to "here's your report." I wouldn't have been able to write that report in 35 minutes even if I already knew the root cause.
+Most agent setups don't have a clean way to give files to the agent or get files out. You end up copy-pasting, committing to git, or manually transferring.
 
-### Security assessments at scale
+**Solution:** A `/shared` volume mounted on the host and in every container. Drop a file into `/shared` from your workstation, and the agent can read it immediately. Agents can also pass files to each other through the same volume.
 
-The biggest impact has been on my AD security assessment workflow. I built a toolkit ([ad-security-scan](https://github.com/FrederikLeed/ad-security-scan)) that collects data from eight different tools — SharpHound, PingCastle, AzureHound, PSPKI, password quality analysis, Maester, Conditional Access coverage, and SYSVOL policies. The analysis phase runs 60+ security queries against a BloodHound graph database.
+### 5. No host protection
 
-The amount of data that comes out of a single assessment is massive. Hundreds of findings across ACL abuse, Kerberos attacks, certificate vulnerabilities, credential hygiene, delegation chains, hybrid identity risks, and M365 configuration. As a human, I physically cannot process all of that data at the same level of detail. I'd have to pick the top 10 findings and write up what I can in the time I have.
+An agent running on your workstation can reach everything your user account can — network shares, internal APIs, production systems. That's not a theoretical risk. Prompt injection, malicious MCP servers, or a compromised skill store could turn that access into an attack path.
 
-Claude reads all of it. Every data source, every finding, cross-referenced. It writes a full security report with findings grouped by severity, mapped to attack scenarios, with specific affected objects, detection guidance, and remediation steps. It generates an executive PowerPoint and a technical Word document. The level of detail in those reports is something I could never justify spending the time on manually.
+**Solution:** The container has limited host access and limited network connectivity. It can reach the internet for git operations and API calls, but it can't reach your internal network by default. The roadmap includes deny-by-default egress policies inspired by [NemoClaw](https://www.nvidia.com/en-us/ai/nemoclaw/) — per-binary network allowlisting, policy-as-code, drift detection.
 
-## The setup — isolation matters
+### 6. No credential management
 
-I don't just run Claude Code on my workstation. I built a Docker-based environment called [claude-workspace](https://github.com/FrederikLeed/claude-workspace) — each project gets its own isolated container with:
+Storing API keys or personal access tokens inside agent environments is a recipe for credential leakage. Especially when the agent can read its own config files.
 
-- **Limited host access** — the container only sees its own workspace and shared volumes
-- **Shared memory** — a `/shared` volume for cross-container file exchange and a persistent memory directory so Claude retains context across sessions
-- **Per-project focus** — one container, one project. The agent isn't distracted by unrelated work, and it can't accidentally touch something it shouldn't
+**Solution:** OAuth device flow per container. Claude Code authenticates via `gh device login` — no stored tokens, no API keys. The credential exists only in memory for the duration of the session.
 
-I also built [claude-manager](https://github.com/FrederikLeed/claude-manager) — a web UI for managing these containers. Create, start, stop, terminal access, activity logs. The goal is to manage a fleet of focused agents, each working on their own thing.
+### 7. No fleet management
 
-Having an agent focused on one thing at a time makes a real difference. It stays in context, doesn't get confused by unrelated code, and delivers more precise results.
+Once you have more than two or three agent containers running, you need a way to see what's running, start and stop instances, and get into a terminal without remembering container IDs.
 
-## The security concerns
+**Solution:** [claude-manager](https://github.com/FrederikLeed/claude-manager) — a web UI for managing Claude Code containers. Create, start, stop, remove, terminal access, activity logs, file upload to shared storage. One dashboard for all your agents.
 
-I'm a security consultant. I think about risk for a living. And AI agents introduce risks that most people aren't thinking about yet.
+### 8. Single-device access
 
-### Autonomous code execution
+AI coding agents typically run in a terminal on one machine. If you start a session on your workstation and want to continue on your laptop — or check progress from your phone — you're out of luck.
 
-Claude Code can write and execute code. That's the whole point — but it's also the biggest risk. An agent that can install packages, run scripts, and modify files is an agent that can be tricked into running something malicious.
+**Solution:** claude-manager uses shared tmux sessions served through a web terminal (xterm.js). Connect from any browser on any device and drop into the same running session with full context.
 
-The skill store / MCP server ecosystem is a supply chain attack waiting to happen. Third-party tools that an AI agent can discover and install autonomously? That's `npm install` with even less human review. One compromised skill, and the agent is running attacker code with whatever permissions it has.
+### 9. Inconsistent environments
 
-This is why isolation matters. Limited network access, limited host access, no ability to reach production systems from the container. The NemoClaw project from NVIDIA had the right idea — deny-by-default egress, per-binary allowlisting, policy-as-code. I'm working on bringing that model to my claude-manager setup.
+"Works on my machine" is bad enough with regular development. With AI agents, inconsistent environments mean inconsistent behavior — different tools installed, different versions, different capabilities.
+
+**Solution:** A single Docker base image ([claude-workspace](https://github.com/FrederikLeed/claude-workspace)) with a known set of tools. Every agent container starts from the same image with the same capabilities.
+
+## The architecture
+
+```
+┌─────────────────────────────────────────────┐
+│  Docker Host                                │
+│                                             │
+│  ┌──────────────┐  ┌──────────────┐         │
+│  │ claude-mgr   │  │ Project A    │         │
+│  │ (web UI)     │  │ container    │         │
+│  │ :3000        │  │              │         │
+│  └──────┬───────┘  └──────────────┘         │
+│         │          ┌──────────────┐         │
+│         ├──────────│ Project B    │         │
+│         │          │ container    │         │
+│         │          └──────────────┘         │
+│         │          ┌──────────────┐         │
+│  Docker │          │ Project C    │         │
+│  socket │          │ container    │         │
+│         │          └──────────────┘         │
+│         │                                   │
+│  ┌──────┴───────────────────────────────┐   │
+│  │  Shared volumes                      │   │
+│  │  /shared          (file exchange)    │   │
+│  │  /project-memory  (per-project)      │   │
+│  │  /home/claude/.claude (agent memory) │   │
+│  └──────────────────────────────────────┘   │
+└─────────────────────────────────────────────┘
+```
+
+**claude-manager** communicates with the Docker engine via the socket to create and manage sibling containers. Each project container is isolated — its own filesystem, its own network namespace, its own Claude Code session. The shared volumes provide controlled data exchange without breaking isolation.
+
+Docker is the source of truth for container state. claude-manager's SQLite database only stores supplemental metadata — human-readable names, tags, notes, activity history.
+
+## Is this unique?
+
+I looked around before writing this, and I couldn't find an existing solution that combines all of these pieces. Here's what's out there:
+
+- **OpenHands** — per-conversation Docker isolation and a web UI, but no persistent memory across sessions. Every conversation starts fresh.
+- **AgentManager** — orchestrates up to 100 concurrent agents, but focused on parallel execution, not persistent per-project workspaces.
+- **HolyClaude** — web UI with multiple AI CLIs, but runs everything in one monolithic container. No isolation.
+- **ClaudeBox** — per-project Docker images, but CLI-only, no web UI, no multi-device access.
+- **NemoClaw** — excellent security sandbox for a single agent, but not a workspace management layer.
+
+The individual pieces all exist — Docker isolation, memory layers, web UIs, multi-device access. The combination of persistent, isolated, per-project agent workspaces with a management UI and multi-device access doesn't seem to exist elsewhere.
+
+## Security concerns I'm still working on
+
+This architecture handles isolation and blast radius. But there are bigger questions I'm still thinking about.
+
+### Supply chain risk
+
+The MCP server / skill store ecosystem is a supply chain attack waiting to happen. Third-party tools that an AI agent can discover and install autonomously — that's `npm install` with even less human review. One compromised skill, and the agent is running attacker code with whatever permissions it has.
+
+Container isolation helps, but it's not enough. I want deny-by-default egress: the agent can only reach explicitly allowlisted endpoints. NemoClaw has the right model — per-binary network policies, policy-as-code, drift detection. That's next on my roadmap for claude-manager.
 
 ### Customer data and compliance
 
-Here's the uncomfortable truth: I've fed customer AD data into Claude. Assessment results, security findings, environment details. It produces better analysis because of it. But I'm not entirely sure where I stand on compliance.
+I use Claude to analyze AD security assessment data — and it produces significantly better analysis because of it. But the compliance question is real: what happens to the data the AI processes? Is it stored? Used for training?
 
-The question isn't whether the AI is useful — it clearly is. The question is: what happens to the data? How does the AI provider process it? Is it used for training? Is it stored? Can it be subpoenaed?
-
-For me, the answer is customer consent. If the customer agrees that their data can be processed by an AI tool as part of the assessment, I'm comfortable. But I want more than that — I want **local processing**. Running the model on my own hardware, where data never leaves my network. That's the OpenClaw / NemoClaw path I started on, and it's still where I want to end up.
-
-Until then, I treat AI-processed customer data the same way I treat any third-party tool: with explicit consent and clear boundaries about what goes in and what doesn't.
-
-### What I'd tell a skeptic
-
-If a fellow security professional tells me "you're giving an AI access to everything" — I'd say: no, I'm not. I'm giving it access to a segmented, isolated container with limited network connectivity and no path to production. The same principles we apply to admin workstations and jump servers apply here.
-
-The conversation isn't "should we use AI agents" — it's "how do we use them safely." Network segmentation, least privilege, deny-by-default egress, audit logging, and explicit data handling agreements. We already know how to do this. We just need to apply it to a new type of tool.
+My current position: customer consent is required before their data goes into any AI tool. But where I want to end up is **local processing** — running models on my own hardware where data never leaves my network. That's the path I started on with OpenClaw, and it's still the goal.
 
 ## What's next
 
-- **Network policies** — deny-by-default egress on agent containers, inspired by NemoClaw
-- **Local model processing** — running models on my own hardware for customer data
-- **Multi-agent orchestration** — multiple Claude instances working on different parts of the same project, coordinated through shared context
+- **Network policies** — deny-by-default egress on agent containers, NemoClaw-inspired
+- **Local model processing** — running models on-premises for customer data
+- **Multi-agent orchestration** — coordinated agents working on different parts of the same project via shared context
 
-One month in, and Claude has already changed how I work. Not because it's magic — but because it can process more data, stay more focused, and produce more detailed output than I can alone. The security model around it is still a work in progress, but that's the interesting part.
+The repos are public if you want to look at the implementation:
+- [claude-workspace](https://github.com/FrederikLeed/claude-workspace) — the Docker base image
+- [claude-manager](https://github.com/FrederikLeed/claude-manager) — the management UI
