@@ -69,7 +69,7 @@ graph TB
     containers -. no route .- internal
 ```
 
-A management container ([claude-manager](https://github.com/FrederikLeed/claude-manager)) runs the web UI and creates sibling containers via the Docker socket. Each project gets its own container, its own workspace volume, its own agent memory. The Docker socket is mounted **only** into the manager — never into project containers.
+A management container runs the web UI and creates sibling containers via the Docker socket. Each project gets its own container, its own workspace volume, its own agent memory. The Docker socket is mounted **only** into the manager — never into project containers.
 
 Everything below is about what that actually buys you in practice.
 
