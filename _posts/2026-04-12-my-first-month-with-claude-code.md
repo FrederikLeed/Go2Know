@@ -19,7 +19,7 @@ published: false
 
 I'm a security consultant. I run AI agents every day — to analyse assessment data, write triage scripts, draft reports. They're genuinely useful. They're also a new kind of endpoint: one that can read files, execute code, install tools, and reach the network, all without a human clicking "approve" for every step.
 
-When you run AI coding agents on your workstation, they can see every repo, every mounted share, every cached credential, and every internal host your user can reach. If you're switching between project engagements, they see all of it at once. If a skill or MCP server turns out to be malicious, it runs with your permissions against your network.
+When you run AI coding agents directly on your workstation, they can see every repo, every mounted share, every cached credential, and every internal host your user can reach. If you're switching between project engagements, they see all of it at once. If a skill or MCP server turns out to be malicious, it runs with your permissions against your network.
 
 In my efforts to use AI agents in a secure fashion I have created an AI hosting environment on my workstation that isolates each agent, limits its access to the host, and controls what it can reach on the network.
 
