@@ -90,7 +90,7 @@ This doesn't stop the agent from misbehaving on an allowed channel (a git push t
 
 ## Credentials: scoped access, no long-lived secrets on disk
 
-For GitHub, the agent uses a fine-grained personal access token scoped to only the repository it needs — not the whole account. If the project is one repo, the token touches that repo and nothing else. Lose the container, and the blast radius on the GitHub side is one repo. GitHub Apps with per-repo installation work the same way if you'd rather issue the credential at the app level instead of the user level.
+For GitHub, the agent uses a fine-grained personal access token scoped to only the repository it needs — not the whole account. If the project is one repo, the token touches that repo and nothing else. Lose the container, and the blast radius on the GitHub side is one repo.
 
 For Claude, it's OAuth device flow. I approve the device from my own browser; the container never sees an API key in a config file. The session lives in the mounted auth directory, scoped to the agent, and can be revoked from the provider side at any time.
 
