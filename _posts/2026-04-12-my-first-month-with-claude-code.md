@@ -13,7 +13,6 @@ tags:
 toc: true
 toc_label: "Contents"
 toc_sticky: true
-mermaid: true
 published: false
 ---
 
@@ -38,36 +37,7 @@ The goal isn't to stop the agent from being wrong. It's to make "the agent was w
 
 ## The architecture
 
-```mermaid
-graph TB
-    subgraph host["Workstation / Docker Host"]
-        mgr["claude-manager<br/>(web UI :3000)"]
-        socket[/"Docker socket<br/>(manager only)"/]
-        proxy["Egress proxy<br/>(deny-by-default,<br/>approval flow)"]
-
-        subgraph containers["Per-project containers"]
-            a["Project A"]
-            b["Project B"]
-            c["Project C"]
-        end
-
-        mgr -->|dockerode| socket
-        socket -->|creates| a
-        socket -->|creates| b
-        socket -->|creates| c
-
-        a -->|all outbound| proxy
-        b -->|all outbound| proxy
-        c -->|all outbound| proxy
-    end
-
-    browser["Browser<br/>(any device)"] -->|":3000"| mgr
-
-    proxy -->|approved<br/>destinations only| internet["Public internet<br/>(GitHub, registries,<br/>Anthropic API)"]
-
-    internal["Internal network<br/>(SMB, DCs, internal APIs)"]
-    containers -. no route .- internal
-```
+![AI agent architecture: browser to claude-manager, Docker socket creates per-project containers, all container egress through a deny-by-default proxy to the public internet, no route to the internal network](/assets/images/2026-04-12-agent-architecture.svg){: .align-center}
 
 A management container runs the web UI and creates sibling containers via the Docker socket. Each project gets its own container, its own workspace volume, its own agent memory. The Docker socket is mounted **only** into the manager — never into project containers.
 
