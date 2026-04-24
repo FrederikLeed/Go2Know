@@ -1,7 +1,8 @@
 digraph agent_architecture {
     rankdir=TB;
     compound=true;
-    bgcolor="transparent";
+    bgcolor="white";
+    pad=0.3;
     splines=true;
     nodesep=0.4;
     ranksep=0.6;

@@ -1,6 +1,6 @@
 ---
-title: "Running AI Agents Like Admin Workstations: Isolation, Host Access, and Network Boundaries"
-excerpt: "An AI agent that can write and execute code is a new kind of endpoint. Here's how I contain one."
+title: "Your AI coding agent is a new kind of endpoint. Here's how I contain mine."
+excerpt: "Containers, limited host access, and deny-by-default egress for AI coding agents."
 date: 2026-04-12
 last_modified_at: 2026-04-21
 categories:
