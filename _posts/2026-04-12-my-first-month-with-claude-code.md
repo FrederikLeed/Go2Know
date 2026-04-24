@@ -92,9 +92,9 @@ This doesn't stop the agent from misbehaving on an allowed channel (a git push t
 
 For GitHub, the agent uses a fine-grained personal access token scoped to only the repository it needs — not the whole account. If the project is one repo, the token touches that repo and nothing else. Lose the container, and the blast radius on the GitHub side is one repo.
 
-For Claude, it's OAuth device flow. I approve the device from my own browser; the container never sees an API key in a config file. The session lives in the mounted auth directory, scoped to the agent, and can be revoked from the provider side at any time.
+For model access, it depends on how the model is hosted. Anthropic-hosted Claude uses OAuth device flow — I approve the device from my own browser, the container never sees an API key in a config file, and I can revoke the session from the provider side at any time. Microsoft Foundry uses a scoped API key tied to one deployment. Local models don't need credentials at all. Whichever applies, the credential lives in the mounted auth directory, scoped to that agent.
 
-No `.env` with secrets. No `ANTHROPIC_API_KEY` baked into the image. No broad `GH_TOKEN` in the shell profile. If the container is compromised, the worst-case credential exposure is "access to the one repo this agent was meant to work on".
+No `.env` with secrets. No broad model API keys baked into the image. No broad `GH_TOKEN` in the shell profile. If a container is compromised, the worst-case credential exposure is scoped to what that one agent was meant to touch.
 
 ## What this does not solve
 
