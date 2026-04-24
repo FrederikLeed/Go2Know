@@ -13,7 +13,9 @@ tags:
 toc: true
 toc_label: "Contents"
 toc_sticky: true
-published: false
+header:
+  teaser: /assets/images/2026-04-12-agent-architecture.png
+published: true
 ---
 
 I'm a security consultant. I run AI agents every day — to analyse assessment data, write triage scripts, draft reports. They're genuinely useful. They're also a new kind of endpoint: one that can read files, execute code, install tools, and reach the network, all without a human clicking "approve" for every step.
