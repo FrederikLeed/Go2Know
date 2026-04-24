@@ -130,7 +130,7 @@ Isolation handles blast radius and lateral movement. It doesn't handle everythin
 
 ### Data residency
 
-For sensitive data I use a local LLM, or a Microsoft Foundry hosted LLM with EU data boundaries. The container controls where the data sits on disk; the model choice controls where the data is processed. Both decisions matter and they're separate.
+For sensitive data I use a local LLM, or a Microsoft Foundry hosted LLM with EU data boundaries. The container controls which network, filesystem and credential resources are available to the agent; the model choice controls where the data is processed. Both decisions matter and they're separate.
 
 ### Still worth watching
 
