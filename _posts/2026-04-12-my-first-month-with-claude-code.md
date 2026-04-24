@@ -19,19 +19,19 @@ published: false
 
 I'm a security consultant. I run AI agents every day — to analyse assessment data, write triage scripts, draft reports. They're genuinely useful. They're also a new kind of endpoint: one that can read files, execute code, install tools, and reach the network, all without a human clicking "approve" for every step.
 
-Most AI coding agents run on your workstation with your user account. That means they can see every repo, every mounted share, every cached credential, and every internal host your user can reach. If you're switching between customer engagements, they see all of it at once. If a skill or MCP server turns out to be malicious, it runs with your permissions against your network.
+When you run AI coding agents on your workstation, they can see every repo, every mounted share, every cached credential, and every internal host your user can reach. If you're switching between project engagements, they see all of it at once. If a skill or MCP server turns out to be malicious, it runs with your permissions against your network.
 
-I treat my admin workstation with segmentation, least privilege, and a clear blast radius. I wanted the same for my agents. So I built it.
+In my efforts to use AI agents in a secure fashion I have created an AI hosting environment on my workstation that isolates each agent, limits its access to the host, and controls what it can reach on the network.
 
 ## Threat model
 
 Before the architecture, the threats I'm actually trying to contain:
 
 - **Autonomous code execution.** The agent writes and runs code by design. A bug, a bad prompt, or a prompt-injected input can turn "help me clean up this folder" into something destructive. I want that contained.
-- **Prompt injection via untrusted input.** I feed the agent log files, HTML pages, scan output, customer documents. Any of those can carry instructions aimed at the model. I assume the model will eventually be tricked.
-- **Supply chain.** MCP servers, skills, and npm packages an agent can install on its own. This is `npm install` with even less human review. One compromised component and attacker code is running inside the agent.
+- **Prompt injection via untrusted input.** I feed the agent log files, HTML pages, scan output, project documents. Any of those can carry instructions aimed at the model. I assume the model will eventually be tricked.
+- **Supply chain.** MCP servers, skills, and npm packages an agent can install on its own. One compromised component and attacker code is running inside the agent.
 - **Credential exposure.** Tokens stored in config files, SSH keys on disk, cached Azure/AWS creds in the user profile. If the agent can read them, so can anything that subverts the agent.
-- **Cross-engagement data bleed.** Customer A's data must not end up in Customer B's context. Ever.
+- **Cross-engagement data bleed.** Project A's data must not end up in Project B's context. Ever.
 - **Lateral movement.** My workstation can reach internal resources. An agent running as me can too. I don't want that.
 
 The goal isn't to stop the agent from being wrong. It's to make "the agent was wrong" a survivable event.
@@ -75,17 +75,17 @@ Everything below is about what that actually buys you in practice.
 
 ## Container per project: segmentation and blast radius
 
-Each customer, each project, each risky experiment gets its own container. Same principle I apply to admin workstations: one task, one scope, one context.
+Each project, each engagement, each risky experiment gets its own container. Same principle I apply to admin workstations: one task, one scope, one context.
 
 What that gets me:
 
 - **Blast radius.** If the agent deletes files, installs something weird, or gets talked into running hostile code, the damage stops at that container's workspace volume. The host, my other projects, and my other agents are untouched. Worst case is `docker rm` and recreate.
-- **Segmentation.** Customer A's assessment data physically cannot end up in Customer B's context. Not "we tell the agent not to" — the files literally aren't on the filesystem it can see.
+- **Segmentation.** Project A's assessment data physically cannot end up in Project B's context. Not "we tell the agent not to" — the files literally aren't on the filesystem it can see.
 - **Clean recovery.** A compromised container is cattle, not a pet. Kill it, recreate from image, re-clone the repo, done.
 
 ## Limited host access: what the agent can and cannot see
 
-The interesting surface isn't the network — it's the filesystem. An agent running as your user sees your home directory, your SSH keys, your `.aws/credentials`, your browser profile. An agent in a container sees only what you explicitly mount.
+The interesting surface isn't just the network — it's also the filesystem. An agent running as your user sees your home directory, your SSH keys, your `.aws/credentials`, your browser profile. An agent in a container sees only what you explicitly mount.
 
 In my setup, each project container has a short, explicit mount list:
 
@@ -114,33 +114,27 @@ From the container's point of view:
 - A new destination — a random URL the agent was told to `curl`, an MCP server pulling from an unexpected host — blocks until I say yes.
 - Container-to-container traffic is off. Project A can't reach Project B.
 
-This doesn't stop the agent from misbehaving on an allowed channel (a git push to a repo I've already approved is still a git push). But it makes the common exfiltration patterns — "the model was told to send my data to `attacker.example`" — a decision I'm aware of, not a silent request leaving the network.
+This doesn't stop the agent from misbehaving on an allowed channel (a git push to a repo I've already approved is still a git push). But it makes the common exfiltration patterns — "the model was told to send my data to `attacker.example`" — a decision I'm made aware of, not a silent request leaving the network.
 
-## Credentials: OAuth device flow, no stored tokens
+## Credentials: scoped access, no long-lived secrets on disk
 
-The agent authenticates to GitHub and to Claude via device flow. I approve the device from my own browser; the container never sees a PAT or an API key in a config file. The session lives in the mounted auth directory, scoped to the agent, and can be revoked from the provider side at any time.
+For GitHub, the agent uses a fine-grained personal access token scoped to only the repository it needs — not the whole account. If the project is one repo, the token touches that repo and nothing else. Lose the container, and the blast radius on the GitHub side is one repo. GitHub Apps with per-repo installation work the same way if you'd rather issue the credential at the app level instead of the user level.
 
-No `.env` with secrets. No `GH_TOKEN` in the shell profile. No `ANTHROPIC_API_KEY` baked into the image. If the container is compromised, there's no long-lived credential on disk to lift.
+For Claude, it's OAuth device flow. I approve the device from my own browser; the container never sees an API key in a config file. The session lives in the mounted auth directory, scoped to the agent, and can be revoked from the provider side at any time.
+
+No `.env` with secrets. No `ANTHROPIC_API_KEY` baked into the image. No broad `GH_TOKEN` in the shell profile. If the container is compromised, the worst-case credential exposure is "access to the one repo this agent was meant to work on".
 
 ## What this does not solve
 
 Isolation handles blast radius and lateral movement. It doesn't handle everything.
 
-### Supply chain
-
-The MCP server and skill ecosystem is a supply chain problem waiting to be exercised. Autonomously installable third-party code with minimal review — that's the pattern, not the exception. Container isolation limits what a compromised skill can reach, and the egress proxy stops it phoning home to a host I haven't approved. But it doesn't stop the agent from doing what it's told inside the container.
-
-My current rule is boring and manual: I don't let agents install MCP servers or skills on their own. If I want one, I add it deliberately, read the source, and rebuild the image.
-
 ### Data residency
 
-I use Claude to analyse customer assessment data because the analysis is significantly better than what I'd produce in the same time. But the compliance question is real: where does that data go, how long is it kept, is it used for training. Container isolation doesn't answer any of that.
+For sensitive data I use a local LLM, or a Microsoft Foundry hosted LLM with EU data boundaries. The container controls where the data sits on disk; the model choice controls where it goes on the network. Both decisions matter and they're separate.
 
-My current position is: customer consent is required before their data touches any hosted AI. Where I want to end up is local model processing — on-premises, data never leaves my network. The hardware isn't there yet for me, but that's the direction.
+### Still worth watching
 
-### The model itself
-
-If the model is prompt-injected and decides to exfiltrate via an already-approved channel (a git push to a repo I've allowed, a call to the Anthropic API), isolation doesn't stop that. The egress proxy narrows the set of channels; it doesn't eliminate them. `claude-manager`'s activity log at least captures what the agent did, so prompt-injection attempts leave a trail — but detecting them in the trail is a problem I haven't solved.
+Supply chain risk in the MCP and skill ecosystem, and prompt-injected models misbehaving over an already-approved channel — isolation narrows these, it doesn't eliminate them.
 
 ## More in a follow-up post
 
@@ -153,14 +147,6 @@ This post is the security layer. The same setup also handles a few things that a
 
 I'll write those up separately. They're interesting in their own right, but they're not what this post is about.
 
-## What's next
+## Closing
 
-- **Local model inference** for customer data, so nothing sensitive leaves the network.
-- **Better detection** on the activity log — turning the audit trail into alerts for prompt-injection patterns, not just a record after the fact.
-- **Tighter in-container sandboxing** (seccomp, Landlock) beyond the current Docker defaults.
-
-The setup isn't finished and it isn't the right answer for everyone. But it moves AI agents from "runs on my workstation with my permissions" to "runs in a box I chose the edges of" — and that's the bar I wanted to hit before putting them near customer data.
-
-Code is public if you want to look at how it's wired:
-
-- [claude-manager](https://github.com/FrederikLeed/claude-manager) — management UI and workspace image source.
+The setup is not perfect, it does not handle everything, but it moves AI agents from "runs on my workstation with my permissions" to "runs in a box I chose the edges of" — and that's the bar I wanted to hit before using AI for real customer facing projects.
