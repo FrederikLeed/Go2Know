@@ -1,15 +1,15 @@
 ---
-title: "Building an Isolated AI Agent Architecture with Claude Code"
-excerpt: "How I built a self-hosted, per-project Docker environment for Claude Code — and why isolation, memory, and multi-device access matter."
+title: "Running AI Agents Like Admin Workstations: Isolation, Host Access, and Network Boundaries"
+excerpt: "An AI agent that can write and execute code is a new kind of endpoint. Here's how I contain one."
 date: 2026-04-12
-last_modified_at: 2026-04-12
+last_modified_at: 2026-04-21
 categories:
-  - Infrastructure
+  - Security
 tags:
   - Claude Code
   - Docker
-  - Automation
-  - Security
+  - Isolation
+  - Network Segmentation
 toc: true
 toc_label: "Contents"
 toc_sticky: true
@@ -17,149 +17,150 @@ mermaid: true
 published: false
 ---
 
-I've been using AI tools for over a year now — starting with ChatGPT Pro, then GitHub Copilot for about six months, and eventually Claude Code. They're all useful in different ways, but they all share the same problem: they run on your machine with your permissions, they forget everything between sessions, and you can't manage multiple agents doing different work.
+I'm a security consultant. I run AI agents every day — to analyse assessment data, write triage scripts, draft reports. They're genuinely useful. They're also a new kind of endpoint: one that can read files, execute code, install tools, and reach the network, all without a human clicking "approve" for every step.
 
-I'm a security consultant. I work on multiple customer projects simultaneously, each with sensitive data that shouldn't bleed into the other. I needed an architecture that treats AI agents the way I treat admin workstations — isolated, segmented, and auditable.
+Most AI coding agents run on your workstation with your user account. That means they can see every repo, every mounted share, every cached credential, and every internal host your user can reach. If you're switching between customer engagements, they see all of it at once. If a skill or MCP server turns out to be malicious, it runs with your permissions against your network.
 
-So I built one.
+I treat my admin workstation with segmentation, least privilege, and a clear blast radius. I wanted the same for my agents. So I built it.
 
-## The problems
+## Threat model
 
-These are the problems I ran into with every AI agent setup I tried, and what my architecture solves for each:
+Before the architecture, the threats I'm actually trying to contain:
 
-### 1. No isolation between projects
+- **Autonomous code execution.** The agent writes and runs code by design. A bug, a bad prompt, or a prompt-injected input can turn "help me clean up this folder" into something destructive. I want that contained.
+- **Prompt injection via untrusted input.** I feed the agent log files, HTML pages, scan output, customer documents. Any of those can carry instructions aimed at the model. I assume the model will eventually be tricked.
+- **Supply chain.** MCP servers, skills, and npm packages an agent can install on its own. This is `npm install` with even less human review. One compromised component and attacker code is running inside the agent.
+- **Credential exposure.** Tokens stored in config files, SSH keys on disk, cached Azure/AWS creds in the user profile. If the agent can read them, so can anything that subverts the agent.
+- **Cross-engagement data bleed.** Customer A's data must not end up in Customer B's context. Ever.
+- **Lateral movement.** My workstation can reach internal resources. An agent running as me can too. I don't want that.
 
-When an AI agent runs on your workstation, it can see everything. Every repo, every file, every credential. If you're working on Customer A's security assessment and switch to Customer B, the agent carries context — and access — across both.
-
-**Solution:** Each project gets its own Docker container. The agent only sees its own workspace. Customer A's data is physically separated from Customer B's.
-
-### 2. No memory across sessions
-
-Every time you start a new chat, you start from zero. You re-explain your project, your conventions, your preferences. The agent rediscovers the codebase every time.
-
-This is a well-known gap — even [OpenHands](https://github.com/OpenHands/OpenHands) (70k+ stars, the largest open-source AI coding agent) has this as a documented weakness. Each conversation gets a fresh container with no persistent state.
-
-**Solution:** Persistent memory volumes that survive container restarts. Claude Code's memory directory (`/home/claude/.claude`) is bind-mounted from the host. Project knowledge, user preferences, and working context carry over between sessions automatically.
-
-### 3. No blast radius control
-
-An AI agent that can write and execute code can also delete files, install packages, and modify system configuration. If it goes wrong, the blast radius is your entire workstation.
-
-**Solution:** Container isolation. If an agent does something destructive, it only affects its own container. Your host, your other projects, and your other agents are untouched.
-
-### 4. No file exchange with the agent
-
-Most agent setups don't have a clean way to give files to the agent or get files out. You end up copy-pasting, committing to git, or manually transferring.
-
-**Solution:** A `/shared` volume mounted on the host and in every container. Drop a file into `/shared` from your workstation, and the agent can read it immediately. Agents can also pass files to each other through the same volume.
-
-### 5. No host protection
-
-An agent running on your workstation can reach everything your user account can — network shares, internal APIs, production systems. That's not a theoretical risk. Prompt injection, malicious MCP servers, or a compromised skill store could turn that access into an attack path.
-
-**Solution:** The container has limited host access and limited network connectivity. It can reach the internet for git operations and API calls, but it can't reach your internal network by default. The roadmap includes deny-by-default egress policies inspired by [NemoClaw](https://www.nvidia.com/en-us/ai/nemoclaw/) — per-binary network allowlisting, policy-as-code, drift detection.
-
-### 6. No credential management
-
-Storing API keys or personal access tokens inside agent environments is a recipe for credential leakage. Especially when the agent can read its own config files.
-
-**Solution:** OAuth device flow per container. Claude Code authenticates via `gh device login` — no stored tokens, no API keys. The credential exists only in memory for the duration of the session.
-
-### 7. No fleet management
-
-Once you have more than two or three agent containers running, you need a way to see what's running, start and stop instances, and get into a terminal without remembering container IDs.
-
-**Solution:** [claude-manager](https://github.com/FrederikLeed/claude-manager) — a web UI for managing Claude Code containers. Create, start, stop, remove, terminal access, activity logs, file upload to shared storage. One dashboard for all your agents.
-
-### 8. Single-device access
-
-AI coding agents typically run in a terminal on one machine. If you start a session on your workstation and want to continue on your laptop — or check progress from your phone — you're out of luck.
-
-**Solution:** claude-manager uses shared tmux sessions served through a web terminal (xterm.js). Connect from any browser on any device and drop into the same running session with full context.
-
-### 9. Inconsistent environments
-
-"Works on my machine" is bad enough with regular development. With AI agents, inconsistent environments mean inconsistent behavior — different tools installed, different versions, different capabilities.
-
-**Solution:** A single Docker base image ([claude-workspace](https://github.com/FrederikLeed/claude-workspace)) with a known set of tools. Every agent container starts from the same image with the same capabilities.
+The goal isn't to stop the agent from being wrong. It's to make "the agent was wrong" a survivable event.
 
 ## The architecture
 
 ```mermaid
 graph TB
-    subgraph host["Docker Host"]
+    subgraph host["Workstation / Docker Host"]
         mgr["claude-manager<br/>(web UI :3000)"]
-        socket[/"Docker Socket"/]
+        socket[/"Docker socket<br/>(manager only)"/]
+        proxy["Egress proxy<br/>(deny-by-default,<br/>approval flow)"]
 
-        subgraph containers["Project Containers"]
-            a["Project A<br/>container"]
-            b["Project B<br/>container"]
-            c["Project C<br/>container"]
+        subgraph containers["Per-project containers"]
+            a["Project A"]
+            b["Project B"]
+            c["Project C"]
         end
 
-        subgraph volumes["Shared Volumes"]
-            shared["/shared<br/>file exchange"]
-            memory["/project-memory<br/>per-project state"]
-            claude["/home/claude/.claude<br/>agent memory"]
-        end
+        mgr -->|dockerode| socket
+        socket -->|creates| a
+        socket -->|creates| b
+        socket -->|creates| c
 
-        mgr -->|manages| socket
-        socket -->|creates & controls| a
-        socket -->|creates & controls| b
-        socket -->|creates & controls| c
-
-        a -.->|mounts| shared
-        b -.->|mounts| shared
-        c -.->|mounts| shared
-        a -.->|mounts| memory
-        b -.->|mounts| memory
-        c -.->|mounts| memory
-        a -.->|mounts| claude
-        b -.->|mounts| claude
-        c -.->|mounts| claude
+        a -->|all outbound| proxy
+        b -->|all outbound| proxy
+        c -->|all outbound| proxy
     end
 
     browser["Browser<br/>(any device)"] -->|":3000"| mgr
+
+    proxy -->|approved<br/>destinations only| internet["Public internet<br/>(GitHub, registries,<br/>Anthropic API)"]
+
+    internal["Internal network<br/>(SMB, DCs, internal APIs)"]
+    containers -. no route .- internal
 ```
 
-**claude-manager** communicates with the Docker engine via the socket to create and manage sibling containers. Each project container is isolated — its own filesystem, its own network namespace, its own Claude Code session. The shared volumes provide controlled data exchange without breaking isolation.
+A management container ([claude-manager](https://github.com/FrederikLeed/claude-manager)) runs the web UI and creates sibling containers via the Docker socket. Each project gets its own container, its own workspace volume, its own agent memory. The Docker socket is mounted **only** into the manager — never into project containers.
 
-Docker is the source of truth for container state. claude-manager's SQLite database only stores supplemental metadata — human-readable names, tags, notes, activity history.
+Everything below is about what that actually buys you in practice.
 
-## What else is out there
+## Container per project: segmentation and blast radius
 
-I'm not the only one thinking about this. There are several projects tackling parts of the same problem:
+Each customer, each project, each risky experiment gets its own container. Same principle I apply to admin workstations: one task, one scope, one context.
 
-- **OpenHands** — the largest open-source AI coding agent (70k+ stars). Per-conversation Docker isolation and a web UI. Closest to what I'm doing, but containers are ephemeral — each conversation starts fresh with no persistent memory. Different model: disposable sandboxes vs. persistent workspaces.
-- **AgentManager** — orchestrates up to 100 concurrent agents in parallel. Focused on running many short-lived tasks, not managing long-lived per-project environments.
-- **HolyClaude** — web UI with multiple AI CLIs pre-installed. Everything runs in one monolithic container though — no project isolation.
-- **ClaudeBox** — per-project Docker images via CLI. No web UI or multi-device access.
-- **NemoClaw** — NVIDIA's security sandbox for AI agents. Excellent isolation primitives (Landlock, seccomp, network namespaces) but it's a security layer, not a workspace management tool. Complementary to what I'm building — I want to bring their deny-by-default network model into my setup.
+What that gets me:
 
-The individual pieces all exist — Docker isolation, memory layers, web UIs, multi-device access. My setup combines them in a way that works for my workflow, but it's still a work in progress. Each of these projects solves the problem differently, and the right approach depends on what you need.
+- **Blast radius.** If the agent deletes files, installs something weird, or gets talked into running hostile code, the damage stops at that container's workspace volume. The host, my other projects, and my other agents are untouched. Worst case is `docker rm` and recreate.
+- **Segmentation.** Customer A's assessment data physically cannot end up in Customer B's context. Not "we tell the agent not to" — the files literally aren't on the filesystem it can see.
+- **Clean recovery.** A compromised container is cattle, not a pet. Kill it, recreate from image, re-clone the repo, done.
 
-## Security concerns I'm still working on
+## Limited host access: what the agent can and cannot see
 
-This architecture handles isolation and blast radius. But there are bigger questions I'm still thinking about.
+The interesting surface isn't the network — it's the filesystem. An agent running as your user sees your home directory, your SSH keys, your `.aws/credentials`, your browser profile. An agent in a container sees only what you explicitly mount.
 
-### Supply chain risk
+In my setup, each project container has a short, explicit mount list:
 
-The MCP server / skill store ecosystem is a supply chain attack waiting to happen. Third-party tools that an AI agent can discover and install autonomously — that's `npm install` with even less human review. One compromised skill, and the agent is running attacker code with whatever permissions it has.
+| Mount                         | Purpose                      | Scope                |
+|-------------------------------|------------------------------|----------------------|
+| `/workspace` (named volume)   | The project's code           | This container only  |
+| `/workspace/.claude`          | Per-project agent memory     | This container only  |
+| `/shared`                     | File exchange with host/agents | Shared, intentional |
+| `/home/claude/.claude`        | Agent config + OAuth session | Shared, auth only    |
 
-Container isolation helps, but it's not enough. I want deny-by-default egress: the agent can only reach explicitly allowlisted endpoints. NemoClaw has the right model — per-binary network policies, policy-as-code, drift detection. That's next on my roadmap for claude-manager.
+Not mounted: my user profile, my SSH keys, my cloud credential caches, my PowerShell history, my Outlook cache, my Documents folder, anything from `C:\Users\...`. None of it exists from the agent's perspective.
 
-### Customer data and compliance
+The Docker socket is mounted into the manager only. Project containers don't get it by default. If a specific agent needs it — say, one that manages other containers — it's an opt-in flag on that instance, not the default. The same thinking as any privileged mount: off unless you consciously decide otherwise.
 
-I use Claude to analyze AD security assessment data — and it produces significantly better analysis because of it. But the compliance question is real: what happens to the data the AI processes? Is it stored? Used for training?
+## Network boundaries: deny-by-default with an approval flow
 
-My current position: customer consent is required before their data goes into any AI tool. But where I want to end up is **local processing** — running models on my own hardware where data never leaves my network. That's the path I started on with OpenClaw, and it's still the goal.
+Project containers attach to an isolated bridge network with no route to my internal network, no access to SMB shares, no access to internal DNS. That part is the easy half.
+
+The harder half is egress to the public internet. "The agent can reach the internet" is how data exfiltrates after a prompt injection, and it's also how the agent does its job (`gh`, `npm`, the Anthropic API, cloning repos). I didn't want to choose.
+
+So all outbound traffic from project containers is forced through a proxy, and the proxy is deny-by-default. Known destinations the agent needs for normal work — the Anthropic API, GitHub, the package registries it's already using — are pre-approved. Anything new triggers an approval prompt: the proxy holds the request, I get a notification, I approve or deny, the request continues or fails.
+
+From the container's point of view:
+
+- Pre-approved destinations are transparent. Git works, npm works, the API works.
+- A new destination — a random URL the agent was told to `curl`, an MCP server pulling from an unexpected host — blocks until I say yes.
+- Container-to-container traffic is off. Project A can't reach Project B.
+
+This doesn't stop the agent from misbehaving on an allowed channel (a git push to a repo I've already approved is still a git push). But it makes the common exfiltration patterns — "the model was told to send my data to `attacker.example`" — a decision I'm aware of, not a silent request leaving the network.
+
+## Credentials: OAuth device flow, no stored tokens
+
+The agent authenticates to GitHub and to Claude via device flow. I approve the device from my own browser; the container never sees a PAT or an API key in a config file. The session lives in the mounted auth directory, scoped to the agent, and can be revoked from the provider side at any time.
+
+No `.env` with secrets. No `GH_TOKEN` in the shell profile. No `ANTHROPIC_API_KEY` baked into the image. If the container is compromised, there's no long-lived credential on disk to lift.
+
+## What this does not solve
+
+Isolation handles blast radius and lateral movement. It doesn't handle everything.
+
+### Supply chain
+
+The MCP server and skill ecosystem is a supply chain problem waiting to be exercised. Autonomously installable third-party code with minimal review — that's the pattern, not the exception. Container isolation limits what a compromised skill can reach, and the egress proxy stops it phoning home to a host I haven't approved. But it doesn't stop the agent from doing what it's told inside the container.
+
+My current rule is boring and manual: I don't let agents install MCP servers or skills on their own. If I want one, I add it deliberately, read the source, and rebuild the image.
+
+### Data residency
+
+I use Claude to analyse customer assessment data because the analysis is significantly better than what I'd produce in the same time. But the compliance question is real: where does that data go, how long is it kept, is it used for training. Container isolation doesn't answer any of that.
+
+My current position is: customer consent is required before their data touches any hosted AI. Where I want to end up is local model processing — on-premises, data never leaves my network. The hardware isn't there yet for me, but that's the direction.
+
+### The model itself
+
+If the model is prompt-injected and decides to exfiltrate via an already-approved channel (a git push to a repo I've allowed, a call to the Anthropic API), isolation doesn't stop that. The egress proxy narrows the set of channels; it doesn't eliminate them. `claude-manager`'s activity log at least captures what the agent did, so prompt-injection attempts leave a trail — but detecting them in the trail is a problem I haven't solved.
+
+## More in a follow-up post
+
+This post is the security layer. The same setup also handles a few things that aren't about containment but about day-to-day usability:
+
+- Persistent per-project memory across sessions.
+- Shared tmux terminals accessible from any device (laptop, workstation, phone).
+- A fleet view for managing multiple running agents.
+- File exchange between host and agents (and between agents) via `/shared`.
+
+I'll write those up separately. They're interesting in their own right, but they're not what this post is about.
 
 ## What's next
 
-- **Network policies** — deny-by-default egress on agent containers, NemoClaw-inspired
-- **Local model processing** — running models on-premises for customer data
-- **Multi-agent orchestration** — coordinated agents working on different parts of the same project via shared context
+- **Local model inference** for customer data, so nothing sensitive leaves the network.
+- **Better detection** on the activity log — turning the audit trail into alerts for prompt-injection patterns, not just a record after the fact.
+- **Tighter in-container sandboxing** (seccomp, Landlock) beyond the current Docker defaults.
 
-The repos are public if you want to look at the implementation:
-- [claude-workspace](https://github.com/FrederikLeed/claude-workspace) — the Docker base image
-- [claude-manager](https://github.com/FrederikLeed/claude-manager) — the management UI
+The setup isn't finished and it isn't the right answer for everyone. But it moves AI agents from "runs on my workstation with my permissions" to "runs in a box I chose the edges of" — and that's the bar I wanted to hit before putting them near customer data.
+
+Code is public if you want to look at how it's wired:
+
+- [claude-manager](https://github.com/FrederikLeed/claude-manager) — management UI and workspace image source.
