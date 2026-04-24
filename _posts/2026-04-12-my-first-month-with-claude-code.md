@@ -47,7 +47,7 @@ Everything below is about what that actually buys you in practice.
 
 ## Container per project: segmentation and blast radius
 
-Each project, each engagement, each risky experiment gets its own container. Same principle I apply to admin workstations: one task, one scope, one context.
+Each project, each engagement, each risky experiment gets its own container — one task, one scope, one context.
 
 What that gets me:
 
