@@ -107,6 +107,23 @@ Ownership drifts — every time someone creates an object, they become the owner
 
 **Important:** The account running this needs Domain Admin level access. The host executing it must be protected at the same tier as your domain controllers.
 
+Create the gMSA and allow the scheduling host to retrieve its password:
+
+```powershell
+$domain = Get-ADDomain
+New-ADServiceAccount -Name 'gMSA_FixOwners' `
+    -DNSHostName "gMSA_FixOwners.$($domain.DNSRoot)" -Enabled $true
+
+Set-ADServiceAccount -Identity 'gMSA_FixOwners' `
+    -PrincipalsAllowedToRetrieveManagedPassword 'YOURSERVER$'
+```
+
+Create the scheduled task in Task Scheduler as you normally would, then point it at the gMSA — note the trailing `$` on the account name and `/RP` with no password (the managed password is fetched automatically):
+
+```batch
+schtasks.exe /change /RU "DOMAIN\gMSA_FixOwners$" /TN "\Maintenance\FixOwnerPermission" /RP
+```
+
 ## Conclusion
 
 Rogue object ownership is one of those things that's easy to overlook and trivial to exploit. Three steps from a forgotten owner permission to Domain Admin. Detect it, fix it, schedule it — and stop worrying about it.
