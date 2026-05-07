@@ -17,7 +17,7 @@ toc_sticky: true
 published: false
 ---
 
-A few weeks ago I wrote about how I contain my own AI coding agent — containers, deny-by-default egress, the lot. That post was about *my* workstation. This one is the inverse: I have a corporate estate to look after, and "is any AI agent running on my endpoints with no human in the approval loop" is a question that has a precise, queryable answer.
+A few weeks ago I wrote about how I contain my own AI coding agent — containers, deny-by-default egress, the lot. That post was about how i run autonomous agents, contained. This one is the inverse: "is any AI agent running on endpoints in your environment, with no human in the approval loop" ?
 
 Three of the most common AI coding agents — Claude Code, OpenAI Codex CLI, GitHub Copilot CLI — all support a fully autonomous mode where they execute shell commands without asking the user. Each one has a documented command-line signature for that mode. Each one shows up in `DeviceProcessEvents` with that signature on the command line. One short KQL query per agent answers the question.
 
