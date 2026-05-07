@@ -46,8 +46,6 @@ DeviceProcessEvents
 | project Timestamp, DeviceName, AccountName, ProcessCommandLine
 ```
 
-One thing worth calling out: KQL's `has` tokenises on whitespace, so `has "--permission-mode auto"` doesn't match the two-token phrase. The regex anchors flag and value together.
-
 ## OpenAI Codex CLI
 
 Codex's autonomy model is structured differently. The unattended signal is a **subcommand**, not a flag: `codex exec`.
