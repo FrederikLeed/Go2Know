@@ -19,7 +19,7 @@ published: false
 
 A few weeks ago I wrote about how I contain my own AI coding agent — containers, deny-by-default egress, the lot. That post was about how i run autonomous agents, contained. This one is the inverse: "is any AI agent running on endpoints in your environment, with no human in the approval loop" ?
 
-Three of the most common AI coding agents — Claude Code, OpenAI Codex CLI, GitHub Copilot CLI — all support a fully autonomous mode where they execute shell commands without asking the user. Each one has a documented command-line signature for that mode. Each one shows up in `DeviceProcessEvents` with that signature on the command line. One short KQL query per agent answers the question.
+Three of the most common AI coding agents — Claude Code, OpenAI Codex CLI, GitHub Copilot CLI — all support a fully autonomous mode where they execute shell commands without asking the user. Each one has a documented command-line signature for that mode, and Defender stores every process command line in the `DeviceProcessEvents` table. The queries below are written for Defender XDR Advanced Hunting and run unchanged in Sentinel — if your process telemetry lives somewhere else (Splunk, Elastic, Crowdstrike, Defender for Endpoint with a different schema), the logic is the same, only the field names change. Translate to whatever you've got.
 
 Three queries, no baselining, no anomaly detection. Either the result is empty — every shell command those agents executed had a human approving it — or it isn't, and you have a conversation to have.
 
