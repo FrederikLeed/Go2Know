@@ -33,7 +33,7 @@ Claude Code's default behaviour is to ask the user before every shell command, f
 | `--permission-mode bypassPermissions` | Current canonical name, equivalent behaviour. |
 | `--permission-mode auto` | Newer, classifier-decides. No prompts; a server-side classifier blocks actions it deems dangerous. |
 
-Anthropic's own permission-modes documentation is unambiguous about the first two: *"bypassPermissions offers no protection against prompt injection or unintended actions."* The `auto` mode is positioned as a safer alternative — but from a SOC perspective it's still unattended execution.
+Anthropic's own [permission-modes documentation](https://code.claude.com/docs/en/permission-modes) is unambiguous about the first two: *"bypassPermissions offers no protection against prompt injection or unintended actions."* The `auto` mode is positioned as a safer alternative — but from a SOC perspective it's still unattended execution.
 
 The other modes (`default`, `acceptEdits`, `plan`, `dontAsk`) all still prompt the user before shell execution, so they aren't interesting for this question.
 
@@ -50,12 +50,12 @@ DeviceProcessEvents
 
 Codex's autonomy model is structured differently. The unattended signal is a **subcommand**, not a flag: `codex exec`.
 
-OpenAI's non-interactive mode documentation describes it plainly: *"Codex exec runs Codex non-interactively (without the TUI or prompts)... Run as part of a pipeline (CI, pre-merge checks, scheduled jobs)."* That's the canonical CI/automation entry point — no TUI, no approval prompts.
+OpenAI's [non-interactive mode documentation](https://developers.openai.com/codex/noninteractive) describes it plainly: *"Codex exec runs Codex non-interactively (without the TUI or prompts)... Run as part of a pipeline (CI, pre-merge checks, scheduled jobs)."* That's the canonical CI/automation entry point — no TUI, no approval prompts.
 
 A handful of flags layer extra autonomy on top and are worth catching as belt-and-braces signals:
 
 - **`--full-auto`** — convenience alias for `-a on-failure --sandbox workspace-write`. Deprecated in newer versions but still works.
-- **`--dangerously-bypass-approvals-and-sandbox`** (alias **`--yolo`**) — full bypass, no sandbox, no approvals. OpenAI's own docs label this *"EXTREMELY DANGEROUS. Intended solely for running in environments that are externally sandboxed."*
+- **`--dangerously-bypass-approvals-and-sandbox`** (alias **`--yolo`**) — full bypass, no sandbox, no approvals. OpenAI's [agent-approvals-and-security guide](https://developers.openai.com/codex/agent-approvals-security) labels this *"EXTREMELY DANGEROUS. Intended solely for running in environments that are externally sandboxed."*
 - **`--ask-for-approval never`** (or `-a never`) — disables approval prompts in any sandbox mode.
 
 ```kql
@@ -73,9 +73,9 @@ DeviceProcessEvents
 
 Copilot CLI needs two things to run unattended: non-interactive mode *and* an allow-all flag. The `-p`/`--prompt` flag alone is non-interactive but still prompts for tool approval. For true autonomous execution you need `--allow-all-tools` or `--allow-all`.
 
-GitHub's own About-Copilot-CLI documentation doesn't pull punches: *"These options allow Copilot to execute commands needed to complete your request, without giving you the opportunity to review and approve those commands before they are run. While this streamlines workflows, and allows headless operation of the CLI, it increases the risk of unintended actions being taken that might result in data loss or corruption, or other security issues."*
+GitHub's own [About-Copilot-CLI documentation](https://docs.github.com/copilot/concepts/agents/about-copilot-cli) doesn't pull punches: *"These options allow Copilot to execute commands needed to complete your request, without giving you the opportunity to review and approve those commands before they are run. While this streamlines workflows, and allows headless operation of the CLI, it increases the risk of unintended actions being taken that might result in data loss or corruption, or other security issues."*
 
-GitHub's responsible-use guide calls this **"autopilot mode"**: *"Typically, when you use Copilot CLI in autopilot mode, you will grant it full permissions to allow it to complete a task autonomously, without requiring you to approve activity as it works on the task."*
+GitHub's [responsible-use guide](https://docs.github.com/en/copilot/responsible-use/copilot-cli) calls this **"autopilot mode"**: *"Typically, when you use Copilot CLI in autopilot mode, you will grant it full permissions to allow it to complete a task autonomously, without requiring you to approve activity as it works on the task."*
 
 This is the standalone `copilot` binary (npm `@github/copilot`), not the older `gh copilot` extension. The latter only suggests shell commands — it doesn't execute them — so it's not relevant here.
 
