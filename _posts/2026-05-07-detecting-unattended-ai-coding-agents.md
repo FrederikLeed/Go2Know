@@ -33,7 +33,7 @@ Claude Code's default behaviour is to ask the user before every shell command, f
 | `--permission-mode bypassPermissions` | Current canonical name, equivalent behaviour. |
 | `--permission-mode auto` | Newer, classifier-decides. No prompts; a server-side classifier blocks actions it deems dangerous. |
 
-Anthropic's own [permission-modes documentation](https://code.claude.com/docs/en/permission-modes) is unambiguous about the first two: *"bypassPermissions offers no protection against prompt injection or unintended actions."* The `auto` mode is positioned as a safer alternative — but from a SOC perspective it's still unattended execution.
+Anthropic's own [permission-modes documentation](https://code.claude.com/docs/en/permission-modes) is unambiguous about the first two: *"bypassPermissions offers no protection against prompt injection or unintended actions."* The `auto` mode is positioned as a safer alternative — but Anthropic flag it themselves: *"Auto mode is a research preview. It reduces prompts but does not guarantee safety. Use it for tasks where you trust the general direction, not as a replacement for review on sensitive operations."* From a SOC perspective it's still unattended execution.
 
 The other modes (`default`, `acceptEdits`, `plan`, `dontAsk`) all still prompt the user before shell execution, so they aren't interesting for this question.
 
@@ -50,7 +50,7 @@ DeviceProcessEvents
 
 Codex's autonomy model is structured differently. The unattended signal is a **subcommand**, not a flag: `codex exec`.
 
-OpenAI's [non-interactive mode documentation](https://developers.openai.com/codex/noninteractive) describes it plainly: *"Codex exec runs Codex non-interactively (without the TUI or prompts)... Run as part of a pipeline (CI, pre-merge checks, scheduled jobs)."* That's the canonical CI/automation entry point — no TUI, no approval prompts.
+OpenAI's [non-interactive mode documentation](https://developers.openai.com/codex/noninteractive) describes it plainly: *"Codex exec runs Codex non-interactively (without the TUI or prompts)... Run as part of a pipeline (CI, pre-merge checks, scheduled jobs)."* That's the canonical CI/automation entry point — no TUI, no approval prompts. OpenAI also flag the network risk explicitly: *"Use caution when enabling network access or web search in Codex. Prompt injection can cause the agent to fetch and follow untrusted instructions."*
 
 A handful of flags layer extra autonomy on top and are worth catching as belt-and-braces signals:
 
