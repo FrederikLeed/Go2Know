@@ -93,4 +93,6 @@ DeviceProcessEvents
 
 Three queries, fifteen minutes. Each one either returns hits — who, on what device, running what — or returns nothing. The queries don't depend on baselines or anomaly models; they answer the question on their own.
 
+A word of warning before you read too much into a clean result, though: this only sees what Defender sees. Process telemetry from `DeviceProcessEvents` covers managed Windows, macOS, and Linux endpoints that are actually onboarded — and that is rarely the full picture of where developers run AI. WSL2 distributions are usually not enrolled, so a Claude or Codex session inside Ubuntu-on-Windows is invisible to this query. Linux servers and personal Linux dev machines often don't have the agent installed. Cloud VMs, lab boxes, BYOD laptops, containers on a workstation — same story. An empty result on a sizeable estate is more likely to be a coverage problem than a behaviour one. That's its own post.
+
 The point isn't to ban any of these tools. It's to know how they're being used, by whom, and on which machines. That's where this kind of visibility starts.
